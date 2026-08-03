@@ -1,0 +1,17 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+sqlalchemy==2.0.36
+pydantic-settings==2.7.1
+pyjwt==2.10.1
+bcrypt==4.2.1
+python-multipart==0.0.20
+pillow==11.1.0
+opencv-python-headless==4.11.0.86
+numpy==2.2.1
+
+# AI inference — CPU-only wheels (no GPU on this dev/demo machine, confirmed
+# with the user). Install with:
+#   pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.7.1
+torchvision==0.22.1
+segmentation-models-pytorch==0.3.4

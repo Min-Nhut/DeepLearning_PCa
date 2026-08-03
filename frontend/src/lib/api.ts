@@ -1,0 +1,209 @@
+import type {
+  AdminStats,
+  ApiAnnotation,
+  ApiCase,
+  ApiImage,
+  ApiSlide,
+  ApiUser,
+  LogEntryApi,
+  MeResponse,
+  MigrationImportResult,
+  MigrationPreview,
+  ModelInfoApi,
+  Point,
+} from '../types';
+
+const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) || 'http://localhost:8000';
+
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+async function apiFetch<T>(path: string, options: RequestInit = {}, token?: string | null): Promise<T> {
+  const headers = new Headers(options.headers);
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+  if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  } catch {
+    throw new ApiError(0, 'Không thể kết nối tới máy chủ backend.');
+  }
+
+  if (!res.ok) {
+    let message = res.statusText;
+    try {
+      const data = await res.json();
+      if (typeof data.detail === 'string') message = data.detail;
+    } catch {
+      // response body wasn't JSON — keep statusText
+    }
+    throw new ApiError(res.status, message);
+  }
+
+  if (res.status === 204) return undefined as T;
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) return (await res.json()) as T;
+  return undefined as T;
+}
+
+export function login(username: string, password: string): Promise<{ access_token: string; token_type: string }> {
+  return apiFetch('/api/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+}
+
+export function getMe(token: string): Promise<MeResponse> {
+  return apiFetch('/api/auth/me', {}, token);
+}
+
+export function getStats(token: string): Promise<AdminStats> {
+  return apiFetch('/api/admin/stats', {}, token);
+}
+
+export function getUsers(token: string): Promise<ApiUser[]> {
+  return apiFetch('/api/admin/users', {}, token);
+}
+
+export function createUser(
+  token: string,
+  payload: { username: string; password: string; full_name?: string; role: string },
+): Promise<ApiUser> {
+  return apiFetch('/api/admin/users', { method: 'POST', body: JSON.stringify(payload) }, token);
+}
+
+export function updateUser(
+  token: string,
+  id: number,
+  payload: Partial<{ is_active: boolean; role: string; full_name: string }>,
+): Promise<ApiUser> {
+  return apiFetch(`/api/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }, token);
+}
+
+export function getLogs(token: string, limit = 50): Promise<LogEntryApi[]> {
+  return apiFetch(`/api/admin/logs?limit=${limit}`, {}, token);
+}
+
+export function getModels(token: string): Promise<ModelInfoApi[]> {
+  return apiFetch('/api/admin/models', {}, token);
+}
+
+export async function exportLibrary(
+  token: string,
+  format: 'csv' | 'json',
+  scope: 'all' | 'reviewed',
+): Promise<Blob> {
+  const res = await fetch(`${API_BASE}/api/admin/library/export?format=${format}&scope=${scope}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new ApiError(res.status, res.statusText);
+  return res.blob();
+}
+
+export function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+export function migrationPreview(token: string, file: File): Promise<MigrationPreview> {
+  const form = new FormData();
+  form.append('file', file);
+  return apiFetch('/api/admin/migration/preview', { method: 'POST', body: form }, token);
+}
+
+export function migrationImport(token: string, file: File, anonymize: boolean): Promise<MigrationImportResult> {
+  const form = new FormData();
+  form.append('file', file);
+  return apiFetch(`/api/admin/migration/import?anonymize=${anonymize}`, { method: 'POST', body: form }, token);
+}
+
+// ---------- cases / slides / images ----------
+export function getCases(token: string, q?: string): Promise<ApiCase[]> {
+  return apiFetch(`/api/cases${q ? `?q=${encodeURIComponent(q)}` : ''}`, {}, token);
+}
+
+export function getCase(token: string, caseId: number): Promise<ApiCase> {
+  return apiFetch(`/api/cases/${caseId}`, {}, token);
+}
+
+export function createCase(
+  token: string,
+  payload: { case_code: string; case_year?: string; patient_name?: string; patient_age?: number; conclusion?: string },
+): Promise<ApiCase> {
+  return apiFetch('/api/cases', { method: 'POST', body: JSON.stringify(payload) }, token);
+}
+
+export function updateCase(
+  token: string,
+  caseId: number,
+  payload: Partial<{ case_code: string; case_year: string; patient_name: string; patient_age: number; conclusion: string }>,
+): Promise<ApiCase> {
+  return apiFetch(`/api/cases/${caseId}`, { method: 'PATCH', body: JSON.stringify(payload) }, token);
+}
+
+export function addSlide(token: string, caseId: number): Promise<ApiSlide> {
+  return apiFetch(`/api/cases/${caseId}/slides`, { method: 'POST', body: JSON.stringify({}) }, token);
+}
+
+export function uploadImage(
+  token: string,
+  slideId: number,
+  file: File | Blob,
+  opts: { description?: string; source?: 'upload' | 'live_capture'; filename?: string } = {},
+): Promise<ApiImage> {
+  const form = new FormData();
+  form.append('file', file, opts.filename ?? (file instanceof File ? file.name : 'capture.jpg'));
+  if (opts.description) form.append('description', opts.description);
+  form.append('source', opts.source ?? 'upload');
+  return apiFetch(`/api/cases/slides/${slideId}/images`, { method: 'POST', body: form }, token);
+}
+
+// ---------- manual annotations ----------
+export function listAnnotations(token: string, imageId: number): Promise<ApiAnnotation[]> {
+  return apiFetch(`/api/images/${imageId}/annotations`, {}, token);
+}
+
+export function createAnnotation(
+  token: string,
+  imageId: number,
+  payload: { points: Point[]; gleason_pattern?: 3 | 4 | 5 | null; note?: string | null },
+): Promise<ApiAnnotation> {
+  return apiFetch(`/api/images/${imageId}/annotations`, { method: 'POST', body: JSON.stringify(payload) }, token);
+}
+
+export function updateAnnotation(
+  token: string,
+  imageId: number,
+  annotationId: number,
+  payload: Partial<{ points: Point[]; gleason_pattern: 3 | 4 | 5 | null; note: string | null }>,
+): Promise<ApiAnnotation> {
+  return apiFetch(`/api/images/${imageId}/annotations/${annotationId}`, { method: 'PATCH', body: JSON.stringify(payload) }, token);
+}
+
+export function deleteAnnotation(token: string, imageId: number, annotationId: number): Promise<void> {
+  return apiFetch(`/api/images/${imageId}/annotations/${annotationId}`, { method: 'DELETE' }, token);
+}
+
+export async function getImageBlobUrl(
+  token: string,
+  imageId: number,
+  size: 'thumb' | 'view' | 'original' = 'thumb',
+): Promise<string> {
+  const res = await fetch(`${API_BASE}/api/images/${imageId}/file?size=${size}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new ApiError(res.status, res.statusText);
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
+}
