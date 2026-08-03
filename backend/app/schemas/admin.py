@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel
 
 
@@ -51,13 +53,14 @@ class ModelMetric(BaseModel):
 
 
 class ModelInfo(BaseModel):
-    name: str
-    task: str
-    encoder: str
-    version: str
-    trained_at: str
-    status: str
-    metrics: list[ModelMetric]
+    arch_key: str  # matches inference/architectures.py exactly, e.g. "efficientnet_b0"
+    task_type: Literal["segmentation", "classification"]
+    name: str  # display name, e.g. "EfficientNet_b0", "DeepLabV3+ (EfficientNet_b0)"
+    task_label: str  # human description, e.g. "Phân loại Gleason Pattern 3/4/5"
+    encoder: str  # backbone name (segmentation) or same as `name` (classification)
+    metrics: list[ModelMetric]  # real for classification, [] for segmentation (no data yet)
+    trained_at: str | None = None  # computed from checkpoint file mtime, None if missing
+    status: str = "pending"  # "active" if checkpoint_available else "pending"
     checkpoint_available: bool = False
 
 

@@ -23,13 +23,15 @@ in scope).
   **diagnostic review CRUD**, and **manual freehand annotation CRUD** (see
   [Backend architecture](#backend-architecture)). Every mutating endpoint writes
   `audit_logs`. `reports` still declined (not needed for this thesis).
-- 🟡 **AI inference pipeline** (`backend/app/inference/`): **scaffolding built, no
-  checkpoints yet** — `POST /api/images/{id}/inference` runs the real tile→segment→
-  classify→aggregate pipeline (CPU PyTorch) against whatever `.pt` files exist under
-  `backend/models/{segmentation,classification}/`, and **fails a run cleanly with a
-  Vietnamese error message** (not a crash/hang) when a checkpoint is missing — verified
-  end-to-end with real curl calls against an empty `backend/models/` (today's actual
-  state). See [AI inference pipeline](#ai-inference-pipeline-backendappinference) below.
+- 🟡 **AI inference pipeline** (`backend/app/inference/`): scaffolding built and now
+  **partially real** — `POST /api/images/{id}/inference` runs the real tile→segment→
+  classify→aggregate pipeline (CPU PyTorch). **Classification: all 4 architectures have
+  real checkpoints** in `backend/models/classification/` (the user's own trained `.pt`
+  files) and load successfully through `registry.load()`, verified with a real forward
+  pass. **Segmentation: still empty** — since the pipeline always runs segmentation
+  first (confirmed order), a full end-to-end run still fails cleanly at that step with a
+  Vietnamese error message (not a crash/hang) until a segmentation checkpoint lands. See
+  [AI inference pipeline](#ai-inference-pipeline-backendappinference) below.
   `Pipeline.tsx`/`Viewer.tsx` are **not wired yet** — still mock, see roadmap.
 - ✅ **Frontend ↔ backend wiring**: Admin (all 6 screens), Cases/CaseDetail/CaseForm/
   Upload, and Annotate verified end-to-end through the actual UI (not just curl) — see
@@ -80,8 +82,10 @@ Read directly from the two training notebooks (`PANDA_classification_training_co
 `PANDA_segmentation_training_colab_2.ipynb` — kept outside this repo, on the user's machine/
 Drive, not checked in here) so the eventual inference pipeline matches what was actually
 trained, not guesswork. **This supersedes older SICAPv2/ResNeXt50 wording still present in
-`docs/PRD.md` and `backend/app/ai_models_config.py`** — see the correction note at the end
-of this section.
+`docs/PRD.md`** — `backend/app/ai_models_config.py` has already been corrected (see
+[AI inference pipeline](#ai-inference-pipeline-backendappinference)); the PRD rewrite is
+a separate, larger pending pass (see Next steps — the wording appears in ~8 sections, not
+just §8.5/§10).
 
 ### Dataset — not SICAPv2
 
@@ -183,10 +187,10 @@ asserts `classification_manifest_with_split.csv` exists first.
   bilinear, **mask resize nearest-neighbor** (mandatory — bilinear would invent
   intermediate class values on a discrete label map).
 - **Output: 6-class semantic segmentation** (background/stroma/benign/G3/G4/G5) — **not**
-  a binary cancer-vs-not mask, correcting the "binary cancer-region mask" wording in
-  `docs/PRD.md` §8.5 and `backend/app/ai_models_config.py`. Segmentation trains on **every**
-  patch that has a mask (no label-confidence filtering, since it's pixel-wise, not
-  patch-wise like classification).
+  a binary cancer-vs-not mask, correcting the "binary cancer-region mask" wording still in
+  `docs/PRD.md` §8.5 (already fixed in `backend/app/ai_models_config.py`). Segmentation
+  trains on **every** patch that has a mask (no label-confidence filtering, since it's
+  pixel-wise, not patch-wise like classification).
 - **Loss**: `CrossEntropyLoss` (weight 0.5) + SMP's multiclass `DiceLoss` (weight 0.5) —
   not specified by the paper, notebook's own choice, flagged as such.
 - **Metrics**: pixel accuracy, mean IoU, mean DSC over the 4 tissue classes only
@@ -255,10 +259,17 @@ Gleason-scoring convention) — **not yet fully speced**, but this ordering is s
   rescaled by a known factor instead of guessed. **Still needs the exact µm/pixel value**
   pulled from a sample PANDA WSI file's metadata to turn "40x ≈ Level 0" into a precise
   scale factor — not done yet.
-- `backend/app/ai_models_config.py` (single "ResNeXt50_32x4d, binary mask" placeholder)
-  and `docs/PRD.md` §8.5/§10 (same stale SICAPv2/ResNeXt50 wording) still need updating
-  once the final architecture-per-task (or multi-model list) is locked in — not done as
-  part of this pass since it's user-facing static content, not just internal docs.
+- **`ai_models_config.py` corrected (2026-08-04)**: no longer a single fake entry per
+  task — now 8 real `ModelInfo` entries (4 classification + 4 segmentation, one per
+  architecture, see [AI inference pipeline](#ai-inference-pipeline-backendappinference)).
+  Classification entries carry the user's real evaluation metrics (`classification_
+  results.csv` from their own training run — not the paper's numbers); segmentation
+  entries have `metrics: []` since no checkpoint/eval data exists yet, never a fabricated
+  placeholder. `docs/PRD.md` still has the old SICAPv2/ResNeXt50/binary-mask wording —
+  turns out it's spread across ~8 sections (§0, §3, §4, §8.3, §8.5, §9.3, §10, §11, §13),
+  not just §8.5/§10 as first thought — left as a separate, larger pass pending the user's
+  go-ahead (it's the thesis's own requirements doc, more sensitive to rewrite than a
+  config file).
 
 ## Frontend architecture
 
@@ -355,9 +366,10 @@ backend/
                                    annotations.py, inference.py) — __init__.py re-exports
                                    everything so `from ..schemas import X` is unchanged
                                    everywhere; was one 235-line schemas.py before this split
-    ai_models_config.py            Static metadata for the 2 trained models — NOT a DB
-                                    table; still describes the OLD stale SICAPv2/ResNeXt50
-                                    placeholder, not yet updated (see AI inference section)
+    ai_models_config.py            Static metadata for the 8 candidate architectures (4
+                                    seg + 4 classification) — NOT a DB table; classification
+                                    entries carry the user's real eval metrics, segmentation
+                                    entries are empty until a checkpoint exists (see below)
     audit.py                        write_audit_log() helper, shared by every mutating
                                      endpoint (see Frontend↔backend integration's audit gap note)
     preprocessing.py                 classical-CV preprocessing (blur/tissue/Macenko),
@@ -654,11 +666,14 @@ even looks at (see [AI models](#ai-models--training-methodology-colab-notebooks)
   segmentation/classification results if present.
 - `GET /api/inference-runs/{run_id}/mask`, `.../heatmap` — auth-gated PNG serving, same
   blob-response pattern as `GET /api/images/{id}/file`.
-- `GET /api/admin/models` now also reports `checkpoint_available: bool` per entry (checks
-  `registry.list_available()`) — honest today: both entries show `false` since
-  `backend/models/` is empty. Note the static 2-entry list (`ai_models_config.py`) is
-  task-level, not per-architecture, so this reflects "is *any* of the 4 real architectures
-  for this task available", not a 1:1 match to the (still stale) static entry itself.
+- `GET /api/admin/models` reports `checkpoint_available`/`trained_at`/`status` per
+  architecture, computed live in the router (`registry.is_available(task_type, arch_key)`
+  + the checkpoint file's mtime) — never baked into `ai_models_config.py`, so dropping a
+  new checkpoint in changes the API response with zero file edits. Verified for real: all
+  4 classification entries show `checkpoint_available: true` with the user's actual
+  metrics (the 4 checkpoints they dropped into `backend/models/classification/` load
+  successfully through `registry.load()` — confirmed via a real forward pass, not just
+  `state_dict` loading); all 4 segmentation entries still show `false` (empty directory).
 
 **Explicitly out of scope for this pass**: `Pipeline.tsx`/`Viewer.tsx` frontend wiring —
 verification was curl-only. See Next steps for the wiring order.
@@ -827,9 +842,10 @@ Roughly in the order they unblock each other:
    instead of guessed.
 5. **v2 heatmap**: real Grad-CAM (3 CNN architectures) / Attention Rollout (ViT), replacing
    the v1 per-patch confidence heatmap currently in `pipeline.py`.
-6. Update `backend/app/ai_models_config.py` and `docs/PRD.md` §8.5/§10's stale
-   SICAPv2/ResNeXt50/binary-mask wording once a final architecture (or list, if deploying
-   all 4) is locked in.
+6. `ai_models_config.py` — done (2026-08-04). **Still pending, needs the user's
+   confirmation to proceed**: rewrite `docs/PRD.md`'s SICAPv2/ResNeXt50/binary-mask
+   wording — larger than first scoped, spans ~8 sections (§0, §3, §4, §8.3, §8.5, §9.3,
+   §10, §11, §13) of the thesis's own requirements doc, not a quick config-file fix.
 7. Docker/`docker-compose` — deferred when the directory reorg was done (PRD marks it
    optional); revisit once the AI pipeline is stable.
 8. Verify the live camera capture path (`Upload.tsx`) on a real machine with a microscope

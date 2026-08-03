@@ -171,20 +171,20 @@ def list_logs(
 
 
 # ---------------------------------------------------------------- models ----
-# Maps the 2 static (still-stale, see CLAUDE.md) generic entries to their real
-# per-architecture task key, so `checkpoint_available` reflects whether *any*
-# of the 4 real architectures for that task has a checkpoint on disk — the
-# static list doesn't yet track individual architectures, only the task.
-_MODEL_NAME_TO_TASK = {"Gland Segmentation": "segmentation", "Gleason Classification": "classification"}
-
-
 @router.get("/models", response_model=list[ModelInfo])
 def list_models() -> list[ModelInfo]:
     out = []
     for m in MODELS:
-        task = _MODEL_NAME_TO_TASK.get(m.name)
-        available = bool(model_registry.list_available(task)) if task else False
-        out.append(m.model_copy(update={"checkpoint_available": available}))
+        available = model_registry.is_available(m.task_type, m.arch_key)
+        trained_at = None
+        if available:
+            path = model_registry.MODEL_ROOT / m.task_type / f"{m.arch_key}_best.pt"
+            trained_at = datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m-%d")
+        out.append(m.model_copy(update={
+            "checkpoint_available": available,
+            "trained_at": trained_at,
+            "status": "active" if available else "pending",
+        }))
     return out
 
 

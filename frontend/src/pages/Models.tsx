@@ -25,12 +25,18 @@ export function Models({ token }: { token: string }) {
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-strong)', fontFamily: 'var(--font-display)' }}>{m.name}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{m.task}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{m.task_label}</div>
               </div>
-              <Badge tone="success" dot>Active</Badge>
+              {m.checkpoint_available
+                ? <Badge tone="success" dot>Sẵn sàng</Badge>
+                : <Badge tone="neutral" dot>Chưa có checkpoint</Badge>}
             </div>
             <div style={{ padding: '16px 20px', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, borderBottom: '1px solid var(--border-subtle)' }}>
-              {m.metrics.map((metric) => (
+              {m.metrics.length === 0 ? (
+                <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '10px 0', fontSize: 12, color: 'var(--text-muted)' }}>
+                  Chưa có số liệu đánh giá
+                </div>
+              ) : m.metrics.map((metric) => (
                 <div key={metric.name} style={{ textAlign: 'center', padding: '10px 0', background: 'var(--gray-50)', borderRadius: 'var(--radius-md)' }}>
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, color: 'var(--brand)', fontWeight: 500 }}>{metric.value}</div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{metric.name}</div>
@@ -38,7 +44,7 @@ export function Models({ token }: { token: string }) {
               ))}
             </div>
             <div style={{ padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {([['Encoder', m.encoder], ['Phiên bản', m.version], ['Huấn luyện', m.trained_at + ' · SICAPv2 · 4-fold CV']] as const).map(([k, v]) => (
+              {([['Encoder', m.encoder], ['Huấn luyện', m.trained_at || '—']] as const).map(([k, v]) => (
                 <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
                   <span style={{ color: 'var(--text-muted)' }}>{k}</span>
                   <span style={{ color: 'var(--text-strong)', fontFamily: 'var(--font-mono)', fontSize: 12 }}>{v}</span>

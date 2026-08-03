@@ -115,13 +115,15 @@ export interface ModelMetricApi {
 }
 
 export interface ModelInfoApi {
+  arch_key: string;
+  task_type: 'segmentation' | 'classification';
   name: string;
-  task: string;
+  task_label: string;
   encoder: string;
-  version: string;
-  trained_at: string;
-  status: string;
   metrics: ModelMetricApi[];
+  trained_at: string | null;
+  status: string;
+  checkpoint_available: boolean;
 }
 
 export interface MigrationPreview {

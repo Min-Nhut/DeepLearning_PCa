@@ -65,13 +65,15 @@ export function AdminDashboard({ token, onGo }: { token: string; onGo: (nav: Nav
             <h3 style={{ fontSize: 'var(--text-base)', marginBottom: 12, fontFamily: 'var(--font-display)' }}>Trạng thái Model AI</h3>
             {models.status !== 'data' && <StateMessage kind={models.status === 'error' ? 'error' : 'loading'}>{models.status === 'error' ? models.message : undefined}</StateMessage>}
             {models.status === 'data' && models.data.map((m) => (
-              <div key={m.name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--border-subtle)' }}>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--success)' }} />
+              <div key={m.arch_key} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--border-subtle)' }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: m.checkpoint_available ? 'var(--success)' : 'var(--gray-300)' }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-strong)' }}>{m.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{m.version} · {m.encoder}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{m.encoder}</div>
                 </div>
-                <Badge tone="success">Online</Badge>
+                {m.checkpoint_available
+                  ? <Badge tone="success">Sẵn sàng</Badge>
+                  : <Badge tone="neutral">Chưa có</Badge>}
               </div>
             ))}
             <Button variant="secondary" size="sm" fullWidth iconLeft={<Icon name="brain-circuit" />} onClick={() => onGo('models')} style={{ marginTop: 12 }}>Chi tiết model</Button>
