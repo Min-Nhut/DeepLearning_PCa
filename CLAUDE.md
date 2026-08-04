@@ -23,14 +23,18 @@ in scope).
   **diagnostic review CRUD**, and **manual freehand annotation CRUD** (see
   [Backend architecture](#backend-architecture)). Every mutating endpoint writes
   `audit_logs`. `reports` still declined (not needed for this thesis).
-- 🟡 **AI inference pipeline** (`backend/app/inference/`): scaffolding built and now
-  **partially real** — `POST /api/images/{id}/inference` runs the real tile→segment→
-  classify→aggregate pipeline (CPU PyTorch). **Classification: all 4 architectures have
-  real checkpoints** in `backend/models/classification/` (the user's own trained `.pt`
-  files) and load successfully through `registry.load()`, verified with a real forward
-  pass. **Segmentation: still empty** — since the pipeline always runs segmentation
-  first (confirmed order), a full end-to-end run still fails cleanly at that step with a
-  Vietnamese error message (not a crash/hang) until a segmentation checkpoint lands. See
+- ✅ **AI inference pipeline** (`backend/app/inference/`): **real checkpoints for both
+  tasks, first full end-to-end run verified 2026-08-04.** Classification: all 4
+  architectures have real checkpoints in `backend/models/classification/`. Segmentation:
+  **3 of the 4 candidate architectures** kept (plain `DeepLabV3` without the `+` was
+  trained but deliberately dropped by the user) — real checkpoints in `backend/models/
+  segmentation/`, all load with `strict=True` (no key mismatch). `POST /api/images/{id}
+  /inference` ran a real image through tile→segment→classify→aggregate and reached
+  `status='completed'`: a real stitched mask PNG was generated (dimensions matched the
+  original exactly) and served back via `GET /api/inference-runs/{id}/mask`; classifying
+  a synthetic non-tissue test image correctly found no cancer patches (primary/secondary
+  stayed `null`, not a fabricated pattern) — the "no result" path works as honestly as
+  the "found a pattern" path would. See
   [AI inference pipeline](#ai-inference-pipeline-backendappinference) below.
   `Pipeline.tsx`/`Viewer.tsx` are **not wired yet** — still mock, see roadmap.
 - ✅ **Frontend ↔ backend wiring**: Admin (all 6 screens), Cases/CaseDetail/CaseForm/
@@ -179,9 +183,11 @@ asserts `classification_manifest_with_split.csv` exists first.
 
 ### Segmentation model
 
-- **4 architectures** (via `segmentation_models_pytorch`): U-Net (DenseNet121 encoder),
-  U-Net (EfficientNet_b0), DeepLabV3 (EfficientNet_b0), **DeepLabV3+ (EfficientNet_b0)**
-  — best of the 4 per the paper.
+- **4 architectures trained** (via `segmentation_models_pytorch`): U-Net (DenseNet121
+  encoder), U-Net (EfficientNet_b0), DeepLabV3 (EfficientNet_b0), **DeepLabV3+
+  (EfficientNet_b0)** — best of the 4 per the paper. **Only 3 deployed**: the user
+  dropped plain DeepLabV3 (kept DeepLabV3+) — see Production architecture below for the
+  real per-architecture eval metrics and which ones actually have checkpoints.
 - **Input**: 500×500 → **256×256** (different resize target than classification's 224 —
   keep this straight when building a shared patch-preprocessing step later). Image resize
   bilinear, **mask resize nearest-neighbor** (mandatory — bilinear would invent
@@ -234,20 +240,31 @@ Gleason-scoring convention) — **not yet fully speced**, but this ordering is s
 
 ### Production architecture — confirmed decisions, still open items
 
-- **Which of the 4 trained architectures per task goes to production**: the user will
-  decide based on **actual results from their own training runs**, not necessarily the
-  paper's winner. Two deployment shapes are both acceptable and under consideration: (a)
-  deploy only the single best-performing checkpoint per task, or (b) deploy **all 4**
-  checkpoints per task and let the web UI pick which architecture to run per case. Nothing
-  in the schema blocks either — `inference_runs.segmentation_model_version`/
-  `classification_model_version` are free-text columns, not FKs to a fixed enum, so a
-  multi-model selector is a frontend/router concern, not a schema change.
-- **Checkpoint files**: the user will add the trained `.pt` files into a models directory
-  under `backend/`. Proposed convention (mirrors the Drive layout the notebooks already
-  use, so files can be copied over unchanged): `backend/models/classification/
-  {model_name}_best.pt` and `backend/models/segmentation/{model_name}_best.pt`. Not
-  created yet — add to `.gitignore` once it exists (large binaries, same treatment as
-  `backend/uploads/`).
+- **Which architectures go to production — resolved for segmentation, still open for
+  classification**: schema never blocked either deployment shape —
+  `inference_runs.segmentation_model_version`/`classification_model_version` are
+  free-text columns, not FKs to a fixed enum. **Segmentation: the user picked "deploy
+  multiple" — 3 of the 4 trained architectures** (dropped plain DeepLabV3, kept U-Net×2 +
+  DeepLabV3+), confirmed 2026-08-04, based on their own real eval results
+  (`segmentation_results.csv`), not the paper's winner. **Classification: still deploying
+  all 4** (no architecture dropped yet) — a model-selector UI to actually choose per run
+  is still pending (see Next steps), today the trigger endpoint just defaults to the
+  first available architecture per task.
+- **Checkpoint files**: real `.pt` files now present — `backend/models/classification/
+  {densenet121,efficientnet_b0,inception_v3,vit_b_16}_best.pt` (4) and `backend/models/
+  segmentation/{unet_densenet121,unet_efficientnet_b0,deeplabv3plus_efficientnet_b0}
+  _best.pt` (3) — all 7 verified to `registry.load()` successfully with `strict=True`
+  (exact architecture match, no key mismatch) via a real forward pass, not just file
+  presence. Gitignored (`backend/.gitignore`'s `models/**/*.pt` rule), same treatment as
+  `backend/uploads/`.
+- **First full pipeline run, verified 2026-08-04**: `POST /api/images/{id}/inference` on
+  a real uploaded image reached `status='completed'` — segmentation produced a real
+  stitched mask PNG (dimensions matched the original exactly, served correctly via
+  `GET /api/inference-runs/{id}/mask`), classification correctly found zero cancer
+  patches on a synthetic non-tissue test image and left `primary_pattern`/
+  `secondary_pattern` as `null` rather than forcing a fake pattern. Confirms the
+  tile→segment→classify→aggregate wiring is genuinely correct end-to-end, not just
+  each piece in isolation.
 - **Microscope calibration**: the training WSIs are literally scans from the **PANDA
   challenge dataset itself** (not a separate/unrelated scanner) — so "Level 0" (see
   Dataset section above) is that scanner's native resolution. The user's real microscope
@@ -260,16 +277,18 @@ Gleason-scoring convention) — **not yet fully speced**, but this ordering is s
   pulled from a sample PANDA WSI file's metadata to turn "40x ≈ Level 0" into a precise
   scale factor — not done yet.
 - **`ai_models_config.py` corrected (2026-08-04)**: no longer a single fake entry per
-  task — now 8 real `ModelInfo` entries (4 classification + 4 segmentation, one per
-  architecture, see [AI inference pipeline](#ai-inference-pipeline-backendappinference)).
-  Classification entries carry the user's real evaluation metrics (`classification_
-  results.csv` from their own training run — not the paper's numbers); segmentation
-  entries have `metrics: []` since no checkpoint/eval data exists yet, never a fabricated
-  placeholder. `docs/PRD.md` still has the old SICAPv2/ResNeXt50/binary-mask wording —
-  turns out it's spread across ~8 sections (§0, §3, §4, §8.3, §8.5, §9.3, §10, §11, §13),
-  not just §8.5/§10 as first thought — left as a separate, larger pass pending the user's
-  go-ahead (it's the thesis's own requirements doc, more sensitive to rewrite than a
-  config file).
+  task — now **7 real `ModelInfo` entries** (4 classification + 3 segmentation, one per
+  deployed architecture, see
+  [AI inference pipeline](#ai-inference-pipeline-backendappinference)). All 7 carry the
+  user's real evaluation metrics from their own training runs (`classification_
+  results.csv` / `segmentation_results.csv` — not the paper's numbers); segmentation
+  metrics show the aggregate columns (accuracy/IoU/DSC/FNR/FPR/specificity) plus
+  `fnr_gleason_5` specifically (flagged as the clinically-relevant one), not all 22 CSV
+  columns — the raw CSV stays the source of truth for the thesis write-up. `docs/PRD.md`
+  still has the old SICAPv2/ResNeXt50/binary-mask wording — turns out it's spread across
+  ~8 sections (§0, §3, §4, §8.3, §8.5, §9.3, §10, §11, §13), not just §8.5/§10 as first
+  thought — left as a separate, larger pass pending the user's go-ahead (it's the
+  thesis's own requirements doc, more sensitive to rewrite than a config file).
 
 ## Frontend architecture
 
@@ -670,10 +689,21 @@ even looks at (see [AI models](#ai-models--training-methodology-colab-notebooks)
   architecture, computed live in the router (`registry.is_available(task_type, arch_key)`
   + the checkpoint file's mtime) — never baked into `ai_models_config.py`, so dropping a
   new checkpoint in changes the API response with zero file edits. Verified for real: all
-  4 classification entries show `checkpoint_available: true` with the user's actual
-  metrics (the 4 checkpoints they dropped into `backend/models/classification/` load
-  successfully through `registry.load()` — confirmed via a real forward pass, not just
-  `state_dict` loading); all 4 segmentation entries still show `false` (empty directory).
+  4 classification entries and all 3 deployed segmentation entries show
+  `checkpoint_available: true` with the user's actual metrics — all 7 checkpoints load
+  successfully through `registry.load()` with `strict=True`, confirmed via a real forward
+  pass, not just `state_dict` loading.
+
+**First full pipeline run** (2026-08-04, curl-verified): with both tasks now having real
+checkpoints, `POST /api/images/{id}/inference` on a real uploaded image reached
+`status='completed'` end to end — tiled the original, ran every tissue patch through
+segmentation, stitched a real colored mask PNG matching the original's exact dimensions,
+gated classification correctly (zero cancer-flagged patches on a synthetic non-tissue
+test image → classification never ran → `primary_pattern`/`secondary_pattern` correctly
+`null`, not a fabricated pattern), and served the mask back via
+`GET /api/inference-runs/{id}/mask`. This is the first real evidence the whole
+tile→segment→classify→aggregate chain is wired correctly, not just each piece verified
+in isolation.
 
 **Explicitly out of scope for this pass**: `Pipeline.tsx`/`Viewer.tsx` frontend wiring —
 verification was curl-only. See Next steps for the wiring order.
@@ -818,24 +848,20 @@ browser preview tool.
 
 Roughly in the order they unblock each other:
 
-1. **Drop real `.pt` checkpoints** into `backend/models/classification/` and
-   `backend/models/segmentation/` (filenames must be `{arch_name}_best.pt`, matching the
-   architecture names in [AI models](#ai-models--training-methodology-colab-notebooks) —
-   e.g. `efficientnet_b0_best.pt`, `deeplabv3plus_efficientnet_b0_best.pt`). The pipeline
-   scaffolding (`backend/app/inference/`, see
-   [AI inference pipeline](#ai-inference-pipeline-backendappinference)) goes from "every
-   run fails with a clear missing-checkpoint message" to actually running with zero code
-   changes — this is the one item that unblocks everything else below.
+1. ~~Drop real `.pt` checkpoints~~ — **done (2026-08-04)**: 4 classification + 3
+   segmentation checkpoints in `backend/models/`, first full pipeline run verified
+   `completed` end-to-end (see [AI inference pipeline](#ai-inference-pipeline-backendappinference)).
 2. **Wire `Pipeline.tsx`/`Viewer.tsx` to the real endpoints** (`GET /api/images/{id}
    /inference` for status polling, replacing the fake `setInterval` timer;
    `GET /api/inference-runs/{id}/mask`/`.../heatmap` for real overlay images, replacing
    the `REGIONS` mock) — `reviews.py` for Viewer's manual PNI/LVI fields is already usable
    today, just not pointed at by the frontend yet. Same `lib/api.ts` + `useApiData`
-   pattern already used everywhere else.
-3. **Model-selector UI** (Upload or Pipeline screen) once ≥2 checkpoints per task exist —
-   reads `GET /api/admin/models`'s `checkpoint_available` / a future
-   `registry.list_available()`-backed endpoint, lets the doctor pick an architecture per
-   run instead of always defaulting to the first one found.
+   pattern already used everywhere else. **Now the top-priority item** — both models are
+   real, so this is what actually makes the pipeline visible/demoable in the UI.
+3. **Model-selector UI** (Upload or Pipeline screen) — now genuinely useful: 4
+   classification architectures and 3 segmentation architectures all have real
+   checkpoints and all default to "first available" today. Reads `GET /api/admin/models`'s
+   `checkpoint_available`, lets the doctor pick an architecture per run.
 4. Pull the real µm/pixel value from a sample PANDA WSI file's metadata (`openslide.mpp-x`/
    `mpp-y` or equivalent), add the "độ phóng đại" field to Upload/live-capture (PRD §8.4)
    so 4x/10x microscope captures can be rescaled to match the 40x≈Level-0 training scale

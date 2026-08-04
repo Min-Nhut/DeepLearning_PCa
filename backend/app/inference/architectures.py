@@ -14,7 +14,6 @@ CLF_NUM_CLASSES = 4  # benign, gleason_3, gleason_4, gleason_5
 SEGMENTATION_ARCHITECTURES = [
     "unet_densenet121",
     "unet_efficientnet_b0",
-    "deeplabv3_efficientnet_b0",
     "deeplabv3plus_efficientnet_b0",
 ]
 
@@ -33,9 +32,6 @@ def get_segmentation_model(name: str) -> nn.Module:
     if name == "unet_efficientnet_b0":
         return smp.Unet(encoder_name="efficientnet-b0", encoder_weights=None,
                          in_channels=3, classes=SEG_NUM_CLASSES)
-    if name == "deeplabv3_efficientnet_b0":
-        return smp.DeepLabV3(encoder_name="efficientnet-b0", encoder_weights=None,
-                              in_channels=3, classes=SEG_NUM_CLASSES)
     if name == "deeplabv3plus_efficientnet_b0":
         return smp.DeepLabV3Plus(encoder_name="efficientnet-b0", encoder_weights=None,
                                   in_channels=3, classes=SEG_NUM_CLASSES)
