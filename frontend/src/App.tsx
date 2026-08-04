@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from './components/ui/Button';
 import { StateMessage } from './components/ui/StateMessage';
 import { Icon } from './lib/icon';
@@ -6,8 +6,7 @@ import { navFor, titleFor, SIDE_MAP } from './lib/nav';
 import * as api from './lib/api';
 import { useApiData } from './lib/useApiData';
 import { caseFromApi } from './lib/caseAdapter';
-import type { HistologyLayer } from './components/Histology';
-import type { Case, MeResponse, Nav, ReviewFields, Role } from './types';
+import type { Case, MeResponse, Nav, Role } from './types';
 import prostaMark from './assets/prosta-mark.png';
 
 import { Login } from './pages/Login';
@@ -45,21 +44,9 @@ export default function App() {
   const [activeCaseId, setActiveCaseId] = useState<string | null>(null);
   const [uploadContext, setUploadContext] = useState<{ caseDbId: number; slideDbId?: number } | null>(null);
   const [annotateImageId, setAnnotateImageId] = useState<number | null>(null);
+  const [aiImageId, setAiImageId] = useState<number | null>(null);
 
-  const [viewerLayer, setViewerLayer] = useState<HistologyLayer>('gleason');
-  const [viewerRegion, setViewerRegion] = useState<string | null>('R1');
-  const [sideBySide, setSideBySide] = useState(false);
-  const [zoom, setZoom] = useState(100);
-
-  const [pipeStep, setPipeStep] = useState(-1);
-  const [pipeCaseId, setPipeCaseId] = useState<string | null>(null);
-  const pipeTimer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
-
-  const [locked, setLocked] = useState<Record<string, boolean>>({});
-  const [review, setReview] = useState<Record<string, ReviewFields>>({});
   const [editing, setEditing] = useState<Case | null>(null);
-
-  useEffect(() => () => clearInterval(pipeTimer.current), []);
 
   // Hydrate the session from a token left in localStorage (e.g. after a page refresh).
   useEffect(() => {
@@ -89,24 +76,18 @@ export default function App() {
 
   function openCase(c: Case) {
     setActiveCaseId(c.id);
-    setNav('viewer');
-    setViewerLayer('gleason');
-    setViewerRegion('R1');
+    setNav('caseDetail');
   }
 
-  function runPipeline(caseId?: string) {
-    clearInterval(pipeTimer.current);
-    const target = caseId || activeCaseId;
-    setNav('pipeline');
-    setPipeStep(0);
-    setPipeCaseId(target);
-    pipeTimer.current = setInterval(() => {
-      setPipeStep((s) => {
-        const n = s + 1;
-        if (n >= 7) { clearInterval(pipeTimer.current); return 7; }
-        return n;
-      });
-    }, 620);
+  function goPipeline(imageId: number, caseId?: string) {
+    if (caseId) setActiveCaseId(caseId);
+    setAiImageId(imageId);
+    go('pipeline');
+  }
+
+  function goViewer(imageId: number) {
+    setAiImageId(imageId);
+    go('viewer');
   }
 
   function newCase() {
@@ -136,10 +117,6 @@ export default function App() {
     go('annotate');
   }
 
-  function setRv(caseId: string, key: keyof ReviewFields, value: ReviewFields[keyof ReviewFields]) {
-    setReview((r) => ({ ...r, [caseId]: { ...r[caseId], [key]: value } }));
-  }
-
   if (hydrating) return null;
   if (!me || !token) return <Login onLoggedIn={handleLoggedIn} />;
 
@@ -159,6 +136,7 @@ export default function App() {
   else if (nav === 'adashboard') topActions = <Button variant="secondary" size="sm" iconLeft={<Icon name="download" />}>Xuất báo cáo hệ thống</Button>;
 
   const noCaseSelected = <StateMessage kind="error">Chưa chọn ca bệnh. Quay lại danh sách ca bệnh.</StateMessage>;
+  const noImageSelected = <StateMessage kind="error">Chưa chọn ảnh. Quay lại chi tiết ca bệnh.</StateMessage>;
 
   let screen: React.ReactNode;
   switch (nav) {
@@ -174,7 +152,7 @@ export default function App() {
       break;
     case 'caseDetail':
       screen = activeCase
-        ? <CaseDetail case={activeCase} token={token} onBack={() => go('cases')} onEdit={editCase} onRunPipeline={runPipeline} onGoUpload={goUpload} onAnnotate={goAnnotate} onReload={reloadCases} />
+        ? <CaseDetail case={activeCase} token={token} onBack={() => go('cases')} onEdit={editCase} onGoResult={goViewer} onGoUpload={goUpload} onAnnotate={goAnnotate} onReload={reloadCases} />
         : noCaseSelected;
       break;
     case 'caseForm': screen = editing && <CaseForm editing={editing} token={token} onCancel={() => go(editing.dbId ? 'caseDetail' : 'cases')} onSaved={caseSaved} />; break;
@@ -182,22 +160,25 @@ export default function App() {
       <Upload
         token={token} cases={cases}
         initialCaseDbId={uploadContext?.caseDbId} initialSlideDbId={uploadContext?.slideDbId}
-        onReload={reloadCases} onRunPipeline={(caseId) => { setActiveCaseId(caseId); runPipeline(caseId); }}
+        onReload={reloadCases} onGoPipeline={goPipeline}
       />
     ); break;
-    case 'pipeline': screen = <Pipeline pipeCaseId={pipeCaseId} step={pipeStep} onViewResults={() => { setActiveCaseId(pipeCaseId || activeCaseId); go('viewer'); }} />; break;
-    case 'viewer': screen = activeCase ? (
-      <Viewer
-        case={activeCase} layer={viewerLayer} region={viewerRegion} sideBySide={sideBySide} zoom={zoom}
-        locked={!!locked[activeCase.id]} review={review[activeCase.id] || {}}
-        onLayerChange={setViewerLayer} onRegionChange={setViewerRegion} onToggleSideBySide={() => setSideBySide((v) => !v)}
-        onZoomIn={() => setZoom((z) => Math.min(400, z + 25))} onZoomOut={() => setZoom((z) => Math.max(25, z - 25))}
-        onReviewChange={(k, v) => setRv(activeCase.id, k, v)}
-        onLock={() => setLocked((l) => ({ ...l, [activeCase.id]: true }))}
-        onGoReport={() => go('report')}
-      />
-    ) : noCaseSelected; break;
-    case 'report': screen = activeCase ? <Report case={activeCase} onBack={() => go('viewer')} /> : noCaseSelected; break;
+    case 'pipeline': screen = aiImageId
+      ? <Pipeline token={token} imageId={aiImageId} onDone={() => go('viewer')} onBack={() => go('caseDetail')} />
+      : noImageSelected;
+      break;
+    case 'viewer': screen = aiImageId
+      ? <Viewer
+          token={token} imageId={aiImageId} caseLabel={activeCase?.id}
+          onBack={() => go('caseDetail')} onGoReport={() => go('report')} onRunAI={() => goPipeline(aiImageId)}
+          onAnnotate={() => goAnnotate(aiImageId)}
+        />
+      : noImageSelected;
+      break;
+    case 'report': screen = aiImageId
+      ? <Report token={token} imageId={aiImageId} caseLabel={activeCase?.id} patientName={activeCase?.hoTen} onBack={() => go('viewer')} />
+      : noImageSelected;
+      break;
     case 'annotate': screen = annotateImageId
       ? <Annotate token={token} imageId={annotateImageId} onBack={() => go('caseDetail')} />
       : noCaseSelected;

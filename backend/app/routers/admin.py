@@ -10,11 +10,10 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ..ai_models_config import MODELS
+from ..ai_models_config import list_model_infos
 from ..audit import write_audit_log
 from ..database import get_db
 from ..deps import require_admin
-from ..inference import registry as model_registry
 from ..models import AuditLog, Case, DiagnosticReview, Image, InferenceRun, Slide, User
 from ..schemas import (
     AdminStats,
@@ -173,19 +172,7 @@ def list_logs(
 # ---------------------------------------------------------------- models ----
 @router.get("/models", response_model=list[ModelInfo])
 def list_models() -> list[ModelInfo]:
-    out = []
-    for m in MODELS:
-        available = model_registry.is_available(m.task_type, m.arch_key)
-        trained_at = None
-        if available:
-            path = model_registry.MODEL_ROOT / m.task_type / f"{m.arch_key}_best.pt"
-            trained_at = datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m-%d")
-        out.append(m.model_copy(update={
-            "checkpoint_available": available,
-            "trained_at": trained_at,
-            "status": "active" if available else "pending",
-        }))
-    return out
+    return list_model_infos()
 
 
 # --------------------------------------------------------------- library ----

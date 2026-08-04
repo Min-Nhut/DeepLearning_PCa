@@ -3,6 +3,7 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Select } from '../components/ui/Select';
+import { IconButton } from '../components/ui/IconButton';
 import { ImageThumb } from '../components/ImageThumb';
 import { Disclaimer } from '../components/Histology';
 import { Icon } from '../lib/icon';
@@ -19,14 +20,14 @@ interface SlideOption { dbId: number; label: string; imageCount: number }
 interface UploadedImage { dbId: number; label: string }
 
 export function Upload({
-  token, cases, initialCaseDbId, initialSlideDbId, onReload, onRunPipeline,
+  token, cases, initialCaseDbId, initialSlideDbId, onReload, onGoPipeline,
 }: {
   token: string;
   cases: Case[];
   initialCaseDbId?: number;
   initialSlideDbId?: number;
   onReload: () => void;
-  onRunPipeline: (caseId: string) => void;
+  onGoPipeline: (imageId: number, caseId: string) => void;
 }) {
   const [selectedCaseId, setSelectedCaseId] = useState<number | ''>(initialCaseDbId ?? '');
   const [slides, setSlides] = useState<SlideOption[]>([]);
@@ -35,6 +36,8 @@ export function Upload({
   const [description, setDescription] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastImageId, setLastImageId] = useState<number | null>(null);
+  const [deletingImageId, setDeletingImageId] = useState<number | null>(null);
 
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
@@ -128,11 +131,28 @@ export function Upload({
       const img = await api.uploadImage(token, slideId, file, { description: description || undefined, source, filename: source === 'live_capture' ? 'capture.jpg' : undefined });
       setImages((prev) => [...prev, { dbId: img.id, label: `H${img.image_number}` }]);
       setSlides((prev) => prev.map((s) => (s.dbId === slideId ? { ...s, imageCount: s.imageCount + 1 } : s)));
+      setLastImageId(img.id);
       onReload();
     } catch (err) {
       setError(err instanceof api.ApiError ? err.message : 'Lưu ảnh thất bại.');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleDeleteImage(imageId: number) {
+    if (!window.confirm('Xóa ảnh này? Kết quả AI và vùng đánh dấu liên quan cũng sẽ bị xóa.')) return;
+    setDeletingImageId(imageId);
+    try {
+      await api.deleteImage(token, imageId);
+      setImages((prev) => prev.filter((im) => im.dbId !== imageId));
+      setSlides((prev) => prev.map((s) => (s.dbId === selectedSlideId ? { ...s, imageCount: Math.max(0, s.imageCount - 1) } : s)));
+      if (lastImageId === imageId) setLastImageId(null);
+      onReload();
+    } catch (err) {
+      setError(err instanceof api.ApiError ? err.message : 'Xóa ảnh thất bại.');
+    } finally {
+      setDeletingImageId(null);
     }
   }
 
@@ -213,8 +233,17 @@ export function Upload({
                 <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                   <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>{im ? im.label : `Hình ${i + 1}`}</div>
                   {im ? (
-                    <div style={{ height: 82, borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ height: 82, borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border-subtle)', position: 'relative' }}>
                       <ImageThumb imageId={im.dbId} token={token} />
+                      <IconButton
+                        label="Xóa ảnh"
+                        size="sm"
+                        disabled={deletingImageId === im.dbId}
+                        onClick={() => handleDeleteImage(im.dbId)}
+                        style={{ position: 'absolute', top: 2, right: 2, background: 'rgba(255,255,255,.9)', boxShadow: 'var(--shadow-sm)', width: 24, height: 24 }}
+                      >
+                        <Icon name={deletingImageId === im.dbId ? 'loader-2' : 'x'} size={13} style={deletingImageId === im.dbId ? { animation: 'pa-spin 1s linear infinite' } : undefined} />
+                      </IconButton>
                     </div>
                   ) : (
                     <div style={{ height: 82, borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-default)', background: 'var(--gray-50)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, color: 'var(--text-muted)', fontSize: 11 }}>
@@ -234,10 +263,14 @@ export function Upload({
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 600, color: 'var(--text-strong)' }}>Sẵn sàng phân tích</div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{images.length} / {MAX_IMAGES_PER_SLIDE} ảnh đã lưu · pipeline 7 bước (Preprocessing → Segmentation → Gleason → ISUP)</div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{images.length} / {MAX_IMAGES_PER_SLIDE} ảnh đã lưu · Segmentation → Classification → Tổng hợp Gleason</div>
         </div>
-        <Button variant="accent" iconRight={<Icon name="arrow-right" />} disabled={!currentCase || images.length === 0} onClick={() => currentCase && onRunPipeline(currentCase.id)}>
-          Chạy phân tích AI
+        <Button
+          variant="accent" iconRight={<Icon name="arrow-right" />}
+          disabled={!currentCase || !lastImageId}
+          onClick={() => currentCase && lastImageId && onGoPipeline(lastImageId, currentCase.id)}
+        >
+          Chạy phân tích AI trên ảnh vừa lưu
         </Button>
       </div>
       <div style={{ marginTop: 14 }}><Disclaimer /></div>

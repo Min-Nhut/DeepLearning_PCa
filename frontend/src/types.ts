@@ -41,30 +41,12 @@ export interface Case {
   dbId?: number; // real cases.id — present once backed by the real API
 }
 
-export interface Region {
-  id: string;
-  pattern: Exclude<GleasonPattern, null>;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  conf: number;
-}
-
-export type PipelineStep = [name: string, description: string, icon: string];
-
 export type Role = 'doctor' | 'admin';
 
 export type Nav =
   | 'dashboard' | 'cases' | 'caseDetail' | 'caseForm' | 'upload' | 'pipeline' | 'viewer' | 'report'
   | 'annotate'
   | 'adashboard' | 'alog' | 'models' | 'users' | 'migration' | 'library';
-
-export interface ReviewFields {
-  pni?: boolean;
-  lvi?: boolean;
-  note?: string;
-}
 
 // ---------------------------------------------------------------------------
 // Backend API types — field names copied 1:1 from backend/app/schemas.py.
@@ -189,4 +171,82 @@ export interface ApiCase {
   created_at: string;
   updated_at: string;
   slides: ApiSlide[];
+}
+
+// ---------- AI inference (backend/app/schemas/inference.py) ----------
+export interface ApiSegmentationResult {
+  id: number;
+  run_id: number;
+  cancer_area_px: number | null;
+  total_tissue_area_px: number | null;
+  cancer_area_percentage: number | null;
+  has_mask: boolean;
+  created_at: string;
+}
+
+export interface ApiClassificationResult {
+  id: number;
+  run_id: number;
+  primary_pattern: 3 | 4 | 5 | null;
+  primary_confidence: number | null;
+  secondary_pattern: 3 | 4 | 5 | null;
+  secondary_confidence: number | null;
+  has_heatmap: boolean;
+  created_at: string;
+}
+
+export type InferenceStatus = 'pending' | 'running' | 'completed' | 'failed';
+
+export interface ApiInferenceRun {
+  id: number;
+  image_id: number;
+  status: InferenceStatus;
+  segmentation_model_version: string | null;
+  classification_model_version: string | null;
+  error_message: string | null;
+  triggered_by: number | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  segmentation: ApiSegmentationResult | null;
+  classification: ApiClassificationResult | null;
+}
+
+export interface InferenceTriggerRequest {
+  segmentation_model?: string;
+  classification_model?: string;
+}
+
+// ---------- diagnostic review (backend/app/schemas/reviews.py) ----------
+export interface ApiDiagnosticReview {
+  id: number;
+  image_id: number;
+  run_id: number | null;
+  primary_pattern: 3 | 4 | 5 | null;
+  secondary_pattern: 3 | 4 | 5 | null;
+  total_score: number | null;
+  grade_group: number | null;
+  cancer_area_percentage: number | null;
+  biopsy_location: string | null;
+  pni_present: boolean;
+  pni_notes: string | null;
+  lvi_present: boolean;
+  lvi_notes: string | null;
+  free_notes: string | null;
+  status: 'draft' | 'confirmed';
+  reviewed_by: number | null;
+  confirmed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DiagnosticReviewUpdate {
+  primary_pattern?: 3 | 4 | 5 | null;
+  secondary_pattern?: 3 | 4 | 5 | null;
+  biopsy_location?: string | null;
+  pni_present?: boolean | null;
+  pni_notes?: string | null;
+  lvi_present?: boolean | null;
+  lvi_notes?: string | null;
+  free_notes?: string | null;
 }
