@@ -300,6 +300,32 @@ def get_preprocessing(image_id: int, db: Session = Depends(get_db)) -> Preproces
     )
 
 
+@image_router.delete("/{image_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_image(
+    image_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> None:
+    image = db.get(Image, image_id)
+    if image is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy ảnh")
+
+    # Every derivative (thumb/view/normalized/tissue-mask) and every inference-run
+    # output (segmask/heatmap) for this image shares its UUID stem as a filename
+    # prefix — see _process_and_store/run_preprocessing/_execute — so one glob on
+    # the stem catches all of them without touching other images in the same
+    # slide directory. DB rows cascade automatically (ON DELETE CASCADE +
+    # PRAGMA foreign_keys=ON), but files on disk don't, so this must be explicit.
+    original_path = UPLOAD_ROOT.parent / image.file_path
+    stem = original_path.stem
+    for f in original_path.parent.glob(f"{stem}*"):
+        f.unlink(missing_ok=True)
+
+    write_audit_log(db, user, "delete_image", "image", image.id, details=f"slide_id={image.slide_id}")
+    db.delete(image)
+    db.commit()
+
+
 @image_router.get("/{image_id}/file")
 def get_image_file(
     image_id: int,

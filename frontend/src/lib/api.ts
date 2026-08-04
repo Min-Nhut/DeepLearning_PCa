@@ -205,6 +205,10 @@ export function deleteAnnotation(token: string, imageId: number, annotationId: n
   return apiFetch(`/api/images/${imageId}/annotations/${annotationId}`, { method: 'DELETE' }, token);
 }
 
+export function deleteImage(token: string, imageId: number): Promise<void> {
+  return apiFetch(`/api/images/${imageId}`, { method: 'DELETE' }, token);
+}
+
 export async function getImageBlobUrl(
   token: string,
   imageId: number,

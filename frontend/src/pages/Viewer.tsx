@@ -12,11 +12,18 @@ import { Disclaimer } from '../components/Histology';
 import { Icon } from '../lib/icon';
 import * as api from '../lib/api';
 import { useApiData } from '../lib/useApiData';
-import { grade } from '../data/mock';
-import type { DiagnosticReviewUpdate } from '../types';
+import type { DiagnosticReviewUpdate, Point } from '../types';
 
-type Layer = 'none' | 'mask' | 'heatmap';
+type Layer = 'none' | 'mask' | 'heatmap' | 'manual';
 type Pattern = 3 | 4 | 5 | null;
+
+function colorFor(pattern: Pattern): string {
+  return pattern ? `var(--gleason-${pattern})` : 'var(--gleason-benign)';
+}
+
+function pointsToAttr(points: Point[]): string {
+  return points.map((p) => `${p.x},${p.y}`).join(' ');
+}
 
 function PatternPicker({ label, value, onChange, disabled }: { label: string; value: Pattern; onChange: (p: Pattern) => void; disabled?: boolean }) {
   return (
@@ -53,24 +60,29 @@ function PatternPicker({ label, value, onChange, disabled }: { label: string; va
   );
 }
 
-export function Viewer({ token, imageId, caseLabel, onBack, onGoReport, onRunAI }: {
+export function Viewer({ token, imageId, caseLabel, onBack, onGoReport, onRunAI, onAnnotate }: {
   token: string;
   imageId: number;
   caseLabel?: string;
   onBack: () => void;
   onGoReport: () => void;
   onRunAI: () => void;
+  onAnnotate: () => void;
 }) {
   const [runState] = useApiData(() => api.getInference(token, imageId), [token, imageId]);
   const [reviewState, reloadReview] = useApiData(() => api.getReview(token, imageId), [token, imageId]);
+  const [annosState] = useApiData(() => api.listAnnotations(token, imageId), [token, imageId]);
   const run = runState.status === 'data' ? runState.data : null;
   const review = reviewState.status === 'data' ? reviewState.data : null;
+  const annotations = annosState.status === 'data' ? annosState.data : [];
 
   const [imgUrl, setImgUrl] = useState<string | null>(null);
   const [maskUrl, setMaskUrl] = useState<string | null>(null);
   const [heatmapUrl, setHeatmapUrl] = useState<string | null>(null);
   const [layer, setLayer] = useState<Layer>('none');
   const [zoom, setZoom] = useState(100);
+  const [zoomOrigin, setZoomOrigin] = useState({ x: 50, y: 50 });
+  const [pickingZoomPoint, setPickingZoomPoint] = useState(false);
 
   const [primary, setPrimary] = useState<Pattern>(null);
   const [secondary, setSecondary] = useState<Pattern>(null);
@@ -163,6 +175,15 @@ export function Viewer({ token, imageId, caseLabel, onBack, onGoReport, onRunAI 
     }
   }
 
+  function handleContainerClick(e: React.MouseEvent<HTMLDivElement>) {
+    if (!pickingZoomPoint) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+    setZoomOrigin({ x, y });
+    setPickingZoomPoint(false);
+  }
+
   if (runState.status === 'loading' || reviewState.status === 'loading') {
     return <StateMessage kind="loading" />;
   }
@@ -175,25 +196,59 @@ export function Viewer({ token, imageId, caseLabel, onBack, onGoReport, onRunAI 
     { key: 'none', label: 'Ảnh gốc' },
     ...(maskUrl ? [{ key: 'mask', label: 'Mặt nạ phân đoạn' }] : []),
     ...(heatmapUrl ? [{ key: 'heatmap', label: 'Heatmap' }] : []),
+    ...(annotations.length > 0 ? [{ key: 'manual', label: 'Mask thủ công' }] : []),
   ];
 
   const viewerArea = (
-    <div style={{ position: 'relative', height: '100%', minHeight: 440, background: '#111', borderRadius: 'var(--radius-lg)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div
+      style={{ position: 'relative', height: '100%', minHeight: 440, background: '#111', borderRadius: 'var(--radius-lg)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: pickingZoomPoint ? 'crosshair' : 'default' }}
+      onClick={handleContainerClick}
+    >
       {imgUrl ? (
-        <div style={{ position: 'relative', width: `${zoom}%`, transition: 'width var(--dur-slow) var(--ease-out)' }}>
+        <div style={{ position: 'relative', width: '100%', transformOrigin: `${zoomOrigin.x}% ${zoomOrigin.y}%`, transform: `scale(${zoom / 100})`, transition: 'transform var(--dur-fast) var(--ease-standard)' }}>
           <img src={imgUrl} alt="" style={{ width: '100%', display: 'block' }} />
-          {layer === 'mask' && maskUrl && <img src={maskUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.55, mixBlendMode: 'normal' }} />}
+          {layer === 'mask' && maskUrl && <img src={maskUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />}
           {layer === 'heatmap' && heatmapUrl && <img src={heatmapUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.6 }} />}
+          {layer === 'manual' && annotations.length > 0 && (
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+              {annotations.map((a) => (
+                <polygon
+                  key={a.id}
+                  points={pointsToAttr(a.points)}
+                  fill={colorFor(a.gleason_pattern)}
+                  fillOpacity={0.45}
+                  stroke={colorFor(a.gleason_pattern)}
+                  strokeWidth={0.4}
+                  vectorEffect="non-scaling-stroke"
+                />
+              ))}
+            </svg>
+          )}
         </div>
       ) : (
         <StateMessage kind="loading" />
       )}
+      <div style={{
+        position: 'absolute', left: `${zoomOrigin.x}%`, top: `${zoomOrigin.y}%`, transform: 'translate(-50%, -50%)',
+        color: pickingZoomPoint ? 'var(--blue-400)' : 'rgba(255,255,255,.55)', pointerEvents: 'none',
+      }}>
+        <Icon name="crosshair" size={18} />
+      </div>
       {overlayLayers.length > 1 && (
         <div style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)' }}>
           <AIOverlayToggle layers={overlayLayers} value={layer} onChange={(k) => setLayer(k as Layer)} />
         </div>
       )}
+      {pickingZoomPoint && (
+        <div style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(30,143,230,.92)', color: '#fff', fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 'var(--radius-md)' }}>
+          Nhấp vào ảnh để đặt tâm phóng to
+        </div>
+      )}
       <div style={{ position: 'absolute', bottom: 16, right: 16, display: 'flex', flexDirection: 'column', gap: 6, background: 'rgba(255,255,255,.85)', backdropFilter: 'blur(8px)', padding: 6, borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-md)', border: '1px solid var(--border-subtle)' }}>
+        <IconButton
+          label="Chọn điểm phóng to" active={pickingZoomPoint}
+          onClick={(e) => { e.stopPropagation(); setPickingZoomPoint((v) => !v); }}
+        ><Icon name="crosshair" /></IconButton>
         <IconButton label="Phóng to" onClick={() => setZoom((z) => Math.min(300, z + 25))}><Icon name="plus" /></IconButton>
         <div style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>{zoom}%</div>
         <IconButton label="Thu nhỏ" onClick={() => setZoom((z) => Math.max(50, z - 25))}><Icon name="minus" /></IconButton>
@@ -212,12 +267,12 @@ export function Viewer({ token, imageId, caseLabel, onBack, onGoReport, onRunAI 
       </div>
       <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
         {!run ? (
-          <div style={{ textAlign: 'center', padding: '20px 0' }}>
+          <div style={{ textAlign: 'center', padding: '12px 0' }}>
             <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>Chưa có kết quả AI cho ảnh này.</div>
             <Button variant="accent" size="sm" iconLeft={<Icon name="sparkles" />} onClick={onRunAI}>Chạy phân tích AI</Button>
           </div>
         ) : run.status !== 'completed' ? (
-          <div style={{ textAlign: 'center', padding: '20px 0' }}>
+          <div style={{ textAlign: 'center', padding: '12px 0' }}>
             <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>
               {run.status === 'failed' ? `Lần chạy trước thất bại: ${run.error_message || ''}` : 'Đang chạy phân tích AI…'}
             </div>
@@ -226,59 +281,56 @@ export function Viewer({ token, imageId, caseLabel, onBack, onGoReport, onRunAI 
             </Button>
           </div>
         ) : (
-          <>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-strong)', marginBottom: 10 }}>Kết quả AI (chỉ đọc)</div>
-              <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
-                <div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>Primary</div>
-                  <GleasonChip pattern={clf?.primary_pattern ? String(clf.primary_pattern) : 'benign'} />
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>Secondary</div>
-                  <GleasonChip pattern={clf?.secondary_pattern ? String(clf.secondary_pattern) : 'benign'} />
-                </div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-strong)', marginBottom: 10 }}>Kết quả AI (chỉ đọc)</div>
+            <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>Primary</div>
+                <GleasonChip pattern={clf?.primary_pattern ? String(clf.primary_pattern) : 'benign'} />
               </div>
-              {clf?.primary_confidence != null && <ConfidenceMeter value={Math.round(clf.primary_confidence)} />}
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginTop: 10 }}>
-                <span style={{ color: 'var(--text-muted)' }}>Tỷ lệ vùng ung thư</span>
-                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-strong)' }}>{seg?.cancer_area_percentage != null ? `${seg.cancer_area_percentage.toFixed(1)}%` : '—'}</span>
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>Secondary</div>
+                <GleasonChip pattern={clf?.secondary_pattern ? String(clf.secondary_pattern) : 'benign'} />
               </div>
             </div>
-            <div style={{ height: 1, background: 'var(--border-subtle)' }} />
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-strong)', marginBottom: 10 }}>
-                Đánh giá của bác sĩ {locked && <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(đã khóa)</span>}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 22, color: 'var(--brand)' }}>{primary ? `${primary}+${secondary || 0}=${total}` : 'Lành tính'}</span>
-                  {primary && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>ISUP Grade Group {grade(primary, secondary)}</span>}
-                </div>
-                <PatternPicker label="Primary" value={primary} onChange={setPrimary} disabled={locked} />
-                <PatternPicker label="Secondary" value={secondary} onChange={setSecondary} disabled={locked} />
-                <Input label="Vị trí sinh thiết" value={biopsyLocation} disabled={locked} onChange={(e) => setBiopsyLocation(e.target.value)} size="sm" />
-                <Checkbox label="PNI (xâm lấn quanh thần kinh)" checked={pni} disabled={locked} onChange={(e) => setPni(e.target.checked)} />
-                {pni && <textarea placeholder="Ghi chú PNI…" disabled={locked} value={pniNotes} onChange={(e) => setPniNotes(e.target.value)} rows={2} style={taStyle(locked)} />}
-                <Checkbox label="LVI (xâm lấn mạch bạch huyết)" checked={lvi} disabled={locked} onChange={(e) => setLvi(e.target.checked)} />
-                {lvi && <textarea placeholder="Ghi chú LVI…" disabled={locked} value={lviNotes} onChange={(e) => setLviNotes(e.target.value)} rows={2} style={taStyle(locked)} />}
-                <textarea placeholder="Ghi chú của bác sĩ…" disabled={locked} value={freeNotes} onChange={(e) => setFreeNotes(e.target.value)} rows={2} style={taStyle(locked)} />
-              </div>
-              {saveError && <div style={{ fontSize: 12, color: 'var(--danger)', marginTop: 8 }}>{saveError}</div>}
+            {clf?.primary_confidence != null && <ConfidenceMeter value={Math.round(clf.primary_confidence)} />}
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginTop: 10 }}>
+              <span style={{ color: 'var(--text-muted)' }}>Tỷ lệ vùng ung thư</span>
+              <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-strong)' }}>{seg?.cancer_area_percentage != null ? `${seg.cancer_area_percentage.toFixed(1)}%` : '—'}</span>
             </div>
-          </>
+          </div>
         )}
-      </div>
-      {run?.status === 'completed' && (
-        <div style={{ marginTop: 'auto', padding: 20, borderTop: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {!locked && <Button variant="secondary" fullWidth iconLeft={<Icon name="save" />} disabled={saving} onClick={handleSave}>{saving ? 'Đang lưu…' : 'Lưu'}</Button>}
-          {locked
-            ? <Button variant="ghost" fullWidth iconLeft={<Icon name="lock" />} disabled>Bản ghi đã khóa</Button>
-            : <Button variant="primary" fullWidth iconLeft={<Icon name="lock" />} disabled={saving || !review} onClick={handleConfirm}>Xác nhận & khóa</Button>}
-          <Button variant="ghost" fullWidth iconLeft={<Icon name="file-text" />} onClick={onGoReport}>Xem báo cáo</Button>
-          <Disclaimer compact />
+        <div style={{ height: 1, background: 'var(--border-subtle)' }} />
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-strong)', marginBottom: 10 }}>
+            Đánh giá của bác sĩ {locked && <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(đã khóa)</span>}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 2 }}>Điểm Gleason</div>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 22, color: 'var(--brand)' }}>{primary ? `${primary}+${secondary || 0}=${total}` : 'Lành tính'}</span>
+            </div>
+            <PatternPicker label="Primary" value={primary} onChange={setPrimary} disabled={locked} />
+            <PatternPicker label="Secondary" value={secondary} onChange={setSecondary} disabled={locked} />
+            <Input label="Vị trí sinh thiết" value={biopsyLocation} disabled={locked} onChange={(e) => setBiopsyLocation(e.target.value)} size="sm" />
+            <Checkbox label="PNI (xâm lấn quanh thần kinh)" checked={pni} disabled={locked} onChange={(e) => setPni(e.target.checked)} />
+            {pni && <textarea placeholder="Ghi chú PNI…" disabled={locked} value={pniNotes} onChange={(e) => setPniNotes(e.target.value)} rows={2} style={taStyle(locked)} />}
+            <Checkbox label="LVI (xâm lấn mạch bạch huyết)" checked={lvi} disabled={locked} onChange={(e) => setLvi(e.target.checked)} />
+            {lvi && <textarea placeholder="Ghi chú LVI…" disabled={locked} value={lviNotes} onChange={(e) => setLviNotes(e.target.value)} rows={2} style={taStyle(locked)} />}
+            <textarea placeholder="Ghi chú của bác sĩ…" disabled={locked} value={freeNotes} onChange={(e) => setFreeNotes(e.target.value)} rows={2} style={taStyle(locked)} />
+          </div>
+          {saveError && <div style={{ fontSize: 12, color: 'var(--danger)', marginTop: 8 }}>{saveError}</div>}
         </div>
-      )}
+      </div>
+      <div style={{ marginTop: 'auto', padding: 20, borderTop: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {!locked && <Button variant="secondary" fullWidth iconLeft={<Icon name="save" />} disabled={saving} onClick={handleSave}>{saving ? 'Đang lưu…' : 'Lưu'}</Button>}
+        {locked
+          ? <Button variant="ghost" fullWidth iconLeft={<Icon name="lock" />} disabled>Bản ghi đã khóa</Button>
+          : <Button variant="primary" fullWidth iconLeft={<Icon name="lock" />} disabled={saving || !review} onClick={handleConfirm}>Xác nhận & khóa</Button>}
+        <Button variant="ghost" fullWidth iconLeft={<Icon name="pencil" />} onClick={onAnnotate}>Vẽ / sửa mask thủ công</Button>
+        <Button variant="ghost" fullWidth iconLeft={<Icon name="file-text" />} onClick={onGoReport}>Xem báo cáo</Button>
+        <Disclaimer compact />
+      </div>
     </div>
   );
 

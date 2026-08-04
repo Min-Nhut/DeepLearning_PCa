@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '../components/ui/Button';
+import { IconButton } from '../components/ui/IconButton';
 import { GleasonChip } from '../components/pathology/GleasonChip';
 import { Disclaimer } from '../components/Histology';
 import { StateMessage } from '../components/ui/StateMessage';
@@ -11,10 +12,10 @@ import type { ApiAnnotation, Point } from '../types';
 type Pattern = 3 | 4 | 5 | null;
 type Mode = 'idle' | 'drawing' | 'pending';
 
-const CLOSE_TOLERANCE = 3; // % distance to the first vertex that closes the polygon
+const MIN_DRAG_DISTANCE = 0.8; // % of image space between recorded points while tracing
 
 function colorFor(pattern: Pattern): string {
-  return pattern ? `var(--gleason-${pattern})` : 'var(--gray-500)';
+  return pattern ? `var(--gleason-${pattern})` : 'var(--gleason-benign)';
 }
 
 function clamp(v: number): number {
@@ -49,7 +50,7 @@ function PatternPicker({ value, onChange }: { value: Pattern; onChange: (p: Patt
           background: value === null ? 'var(--blue-50)' : 'var(--white)', color: 'var(--text-body)',
         }}
       >
-        Không gán nhãn
+        Lành tính
       </button>
     </div>
   );
@@ -60,7 +61,8 @@ export function Annotate({ token, imageId, onBack }: {
   imageId: number;
   onBack: () => void;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const outerRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const [imgUrl, setImgUrl] = useState<string | null>(null);
   const [imgFailed, setImgFailed] = useState(false);
 
@@ -68,6 +70,7 @@ export function Annotate({ token, imageId, onBack }: {
   const annotations = annosState.status === 'data' ? annosState.data : [];
 
   const [mode, setMode] = useState<Mode>('idle');
+  const [isTracing, setIsTracing] = useState(false);
   const [draftPoints, setDraftPoints] = useState<Point[]>([]);
   const [draftPattern, setDraftPattern] = useState<Pattern>(null);
   const [draftNote, setDraftNote] = useState('');
@@ -77,6 +80,10 @@ export function Annotate({ token, imageId, onBack }: {
   const [editing, setEditing] = useState<ApiAnnotation | null>(null);
   const [editPattern, setEditPattern] = useState<Pattern>(null);
   const [editNote, setEditNote] = useState('');
+
+  const [zoom, setZoom] = useState(100);
+  const [zoomOrigin, setZoomOrigin] = useState({ x: 50, y: 50 });
+  const [pickingZoomPoint, setPickingZoomPoint] = useState(false);
 
   useEffect(() => {
     let objectUrl: string | null = null;
@@ -100,29 +107,67 @@ export function Annotate({ token, imageId, onBack }: {
 
   function cancelDrawing() {
     setMode('idle');
+    setIsTracing(false);
     setDraftPoints([]);
     setDraftPattern(null);
     setDraftNote('');
   }
 
-  function handleSvgClick(e: React.MouseEvent<SVGSVGElement>) {
-    if (mode === 'idle') {
-      setSelectedId(null);
-      return;
-    }
-    if (mode !== 'drawing' || !containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
+  function handleContainerClick(e: React.MouseEvent<HTMLDivElement>) {
+    if (!pickingZoomPoint) return;
+    const rect = e.currentTarget.getBoundingClientRect();
     const x = clamp(((e.clientX - rect.left) / rect.width) * 100);
     const y = clamp(((e.clientY - rect.top) / rect.height) * 100);
+    setZoomOrigin({ x, y });
+    setPickingZoomPoint(false);
+  }
 
+  function pointFromWrapper(e: { clientX: number; clientY: number }): Point {
+    const rect = wrapperRef.current!.getBoundingClientRect();
+    return {
+      x: clamp(((e.clientX - rect.left) / rect.width) * 100),
+      y: clamp(((e.clientY - rect.top) / rect.height) * 100),
+    };
+  }
+
+  function handleSvgBackgroundClick() {
+    if (pickingZoomPoint) return;
+    if (mode === 'idle') setSelectedId(null);
+  }
+
+  function handlePolygonClick(e: React.MouseEvent, a: ApiAnnotation) {
+    if (pickingZoomPoint) return;
+    if (mode !== 'idle') return;
+    e.stopPropagation();
+    setSelectedId(a.id);
+  }
+
+  function handlePointerDown(e: React.PointerEvent<SVGSVGElement>) {
+    if (pickingZoomPoint || mode !== 'drawing') return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setIsTracing(true);
+    setDraftPoints([pointFromWrapper(e)]);
+  }
+
+  function handlePointerMove(e: React.PointerEvent<SVGSVGElement>) {
+    if (!isTracing) return;
+    const p = pointFromWrapper(e);
+    setDraftPoints((pts) => {
+      const last = pts[pts.length - 1];
+      if (last && Math.hypot(p.x - last.x, p.y - last.y) < MIN_DRAG_DISTANCE) return pts;
+      return [...pts, p];
+    });
+  }
+
+  function handlePointerUp(e: React.PointerEvent<SVGSVGElement>) {
+    if (!isTracing) return;
+    setIsTracing(false);
+    e.currentTarget.releasePointerCapture(e.pointerId);
     if (draftPoints.length >= 3) {
-      const first = draftPoints[0];
-      if (Math.hypot(x - first.x, y - first.y) < CLOSE_TOLERANCE) {
-        setMode('pending');
-        return;
-      }
+      setMode('pending');
+    } else {
+      setDraftPoints([]);
     }
-    setDraftPoints((pts) => [...pts, { x, y }]);
   }
 
   async function handleSaveNew() {
@@ -169,48 +214,86 @@ export function Annotate({ token, imageId, onBack }: {
   }
 
   const imageArea = (
-    <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
-      {imgFailed ? (
-        <StateMessage kind="error">Không tải được ảnh.</StateMessage>
-      ) : imgUrl ? (
-        <img src={imgUrl} alt="" style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 'var(--radius-lg)' }} />
-      ) : (
-        <StateMessage kind="loading" />
-      )}
-      <svg
-        viewBox="0 0 100 100" preserveAspectRatio="none" onClick={handleSvgClick}
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', cursor: mode === 'drawing' ? 'crosshair' : 'default' }}
+    <div
+      ref={outerRef}
+      style={{ position: 'relative', width: '100%', overflow: 'hidden', cursor: pickingZoomPoint ? 'crosshair' : 'default' }}
+      onClick={handleContainerClick}
+    >
+      <div
+        ref={wrapperRef}
+        style={{ position: 'relative', width: '100%', transformOrigin: `${zoomOrigin.x}% ${zoomOrigin.y}%`, transform: `scale(${zoom / 100})`, transition: 'transform var(--dur-fast) var(--ease-standard)' }}
       >
-        {annotations.map((a) => (
-          <polygon
-            key={a.id}
-            points={pointsToAttr(a.points)}
-            onClick={(e) => { if (mode === 'idle') { e.stopPropagation(); setSelectedId(a.id); } }}
-            style={{ cursor: mode === 'idle' ? 'pointer' : undefined }}
-            fill={colorFor(a.gleason_pattern)}
-            fillOpacity={selectedId === a.id ? 0.35 : 0.18}
-            stroke={colorFor(a.gleason_pattern)}
-            strokeWidth={selectedId === a.id ? 0.6 : 0.35}
-            vectorEffect="non-scaling-stroke"
-          />
-        ))}
-        {mode !== 'idle' && draftPoints.length > 0 && (
-          <>
+        {imgFailed ? (
+          <StateMessage kind="error">Không tải được ảnh.</StateMessage>
+        ) : imgUrl ? (
+          <img src={imgUrl} alt="" style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 'var(--radius-lg)' }} />
+        ) : (
+          <StateMessage kind="loading" />
+        )}
+        <svg
+          viewBox="0 0 100 100" preserveAspectRatio="none"
+          onClick={handleSvgBackgroundClick}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', touchAction: 'none', cursor: mode === 'drawing' ? 'crosshair' : 'default' }}
+        >
+          {annotations.map((a) => (
+            <polygon
+              key={a.id}
+              points={pointsToAttr(a.points)}
+              onClick={(e) => handlePolygonClick(e, a)}
+              style={{ cursor: mode === 'idle' ? 'pointer' : undefined }}
+              fill={colorFor(a.gleason_pattern)}
+              fillOpacity={selectedId === a.id ? 0.35 : 0.18}
+              stroke={colorFor(a.gleason_pattern)}
+              strokeWidth={selectedId === a.id ? 0.6 : 0.35}
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+          {mode === 'drawing' && draftPoints.length > 0 && (
             <polyline
-              points={pointsToAttr(mode === 'pending' ? [...draftPoints, draftPoints[0]] : draftPoints)}
-              fill={mode === 'pending' ? colorFor(draftPattern) : 'none'}
-              fillOpacity={0.2}
+              points={pointsToAttr(draftPoints)}
+              fill="none"
               stroke="var(--blue-500)"
-              strokeDasharray={mode === 'drawing' ? '1.2 1' : undefined}
+              strokeWidth={0.6}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+            />
+          )}
+          {mode === 'pending' && draftPoints.length > 0 && (
+            <polygon
+              points={pointsToAttr(draftPoints)}
+              fill={colorFor(draftPattern)}
+              fillOpacity={0.25}
+              stroke={colorFor(draftPattern)}
               strokeWidth={0.5}
               vectorEffect="non-scaling-stroke"
             />
-            {draftPoints.map((p, i) => (
-              <circle key={i} cx={p.x} cy={p.y} r={i === 0 ? 1 : 0.6} fill="var(--blue-500)" />
-            ))}
-          </>
-        )}
-      </svg>
+          )}
+        </svg>
+      </div>
+      <div style={{
+        position: 'absolute', left: `${zoomOrigin.x}%`, top: `${zoomOrigin.y}%`, transform: 'translate(-50%, -50%)',
+        color: pickingZoomPoint ? 'var(--blue-500)' : 'rgba(0,0,0,.3)', pointerEvents: 'none',
+      }}>
+        <Icon name="crosshair" size={18} />
+      </div>
+      {pickingZoomPoint && (
+        <div style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(30,143,230,.92)', color: '#fff', fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 'var(--radius-md)' }}>
+          Nhấp vào ảnh để đặt tâm phóng to
+        </div>
+      )}
+      <div style={{ position: 'absolute', bottom: 12, right: 12, display: 'flex', flexDirection: 'column', gap: 6, background: 'rgba(255,255,255,.85)', backdropFilter: 'blur(8px)', padding: 6, borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-md)', border: '1px solid var(--border-subtle)' }}>
+        <IconButton
+          label="Chọn điểm phóng to" active={pickingZoomPoint}
+          onClick={(e) => { e.stopPropagation(); setPickingZoomPoint((v) => !v); }}
+        ><Icon name="crosshair" /></IconButton>
+        <IconButton label="Phóng to" onClick={(e) => { e.stopPropagation(); setZoom((z) => Math.min(300, z + 25)); }}><Icon name="plus" /></IconButton>
+        <div style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>{zoom}%</div>
+        <IconButton label="Thu nhỏ" onClick={(e) => { e.stopPropagation(); setZoom((z) => Math.max(50, z - 25)); }}><Icon name="minus" /></IconButton>
+      </div>
     </div>
   );
 
@@ -223,13 +306,10 @@ export function Annotate({ token, imageId, onBack }: {
             <Button variant="accent" size="sm" iconLeft={<Icon name="pencil" />} onClick={startDrawing}>Vẽ vùng mới</Button>
           )}
           {mode === 'drawing' && (
-            <div style={{ display: 'flex', gap: 8 }}>
-              <span style={{ fontSize: 12, color: 'var(--text-muted)', alignSelf: 'center' }}>
-                {draftPoints.length} điểm — click gần điểm đầu để đóng vùng
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                Giữ và kéo trên ảnh để vẽ vùng, thả ra để hoàn tất
               </span>
-              {draftPoints.length >= 3 && (
-                <Button variant="primary" size="sm" onClick={() => setMode('pending')}>Xong</Button>
-              )}
               <Button variant="ghost" size="sm" onClick={cancelDrawing}>Hủy</Button>
             </div>
           )}
@@ -277,13 +357,9 @@ export function Annotate({ token, imageId, onBack }: {
           {annotations.map((a) => (
             <div key={a.id} style={{ border: `1px solid ${selectedId === a.id ? 'var(--blue-300)' : 'var(--border-subtle)'}`, borderRadius: 'var(--radius-md)', padding: '8px 10px', background: selectedId === a.id ? 'var(--blue-50)' : 'var(--white)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} onClick={() => setSelectedId(a.id)}>
-                {a.gleason_pattern ? (
-                  <GleasonChip pattern={String(a.gleason_pattern)} size="sm" showLabel={false} />
-                ) : (
-                  <span style={{ width: 20, height: 20, borderRadius: 'var(--radius-sm)', background: 'var(--gray-200)', display: 'inline-block' }} />
-                )}
+                <GleasonChip pattern={a.gleason_pattern ? String(a.gleason_pattern) : 'benign'} size="sm" showLabel={false} />
                 <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-strong)', flex: 1 }}>
-                  {a.gleason_pattern ? `Pattern ${a.gleason_pattern}` : 'Chưa gán nhãn'}
+                  {a.gleason_pattern ? `Pattern ${a.gleason_pattern}` : 'Lành tính'}
                 </span>
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>~{a.area_percentage.toFixed(1)}%</span>
               </div>

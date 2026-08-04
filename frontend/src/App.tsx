@@ -171,6 +171,7 @@ export default function App() {
       ? <Viewer
           token={token} imageId={aiImageId} caseLabel={activeCase?.id}
           onBack={() => go('caseDetail')} onGoReport={() => go('report')} onRunAI={() => goPipeline(aiImageId)}
+          onAnnotate={() => goAnnotate(aiImageId)}
         />
       : noImageSelected;
       break;

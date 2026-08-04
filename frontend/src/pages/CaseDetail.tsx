@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
+import { IconButton } from '../components/ui/IconButton';
 import { GleasonChip } from '../components/pathology/GleasonChip';
 import { ImageThumb } from '../components/ImageThumb';
 import { Icon } from '../lib/icon';
 import * as api from '../lib/api';
-import { grade } from '../data/mock';
 import type { Case } from '../types';
 
 const MAX_SLIDES = 12;
@@ -22,6 +22,7 @@ export function CaseDetail({ case: c, token, onBack, onEdit, onGoResult, onGoUpl
   onReload: () => void;
 }) {
   const [addingSlide, setAddingSlide] = useState(false);
+  const [deletingImageId, setDeletingImageId] = useState<number | null>(null);
   const meta: [string, string | number][] = [['Mã số', c.maSo], ['Mã năm', c.maNam], ['Họ tên bệnh nhân', c.hoTen], ['Tuổi', c.tuoi]];
   const hasAiResult = c.primary != null || c.gleason != null;
 
@@ -35,6 +36,19 @@ export function CaseDetail({ case: c, token, onBack, onEdit, onGoResult, onGoUpl
       // best-effort — the slide list simply won't grow; the button stays clickable to retry
     } finally {
       setAddingSlide(false);
+    }
+  }
+
+  async function handleDeleteImage(imageId: number) {
+    if (!window.confirm('Xóa ảnh này? Kết quả AI và vùng đánh dấu liên quan cũng sẽ bị xóa.')) return;
+    setDeletingImageId(imageId);
+    try {
+      await api.deleteImage(token, imageId);
+      onReload();
+    } catch {
+      // best-effort — the image stays visible so the doctor can retry
+    } finally {
+      setDeletingImageId(null);
     }
   }
 
@@ -55,8 +69,8 @@ export function CaseDetail({ case: c, token, onBack, onEdit, onGoResult, onGoUpl
           {hasAiResult ? (
             <>
               <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 2 }}>Điểm Gleason</div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, color: 'var(--brand)' }}>{c.primary ? `${c.primary}+${c.secondary}=${c.primary + (c.secondary || 0)}` : 'Lành tính'}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{c.primary ? 'ISUP Grade Group ' + grade(c.primary, c.secondary) : '—'}</div>
               </div>
               <GleasonChip pattern={c.gleason || '3'} />
             </>
@@ -104,17 +118,28 @@ export function CaseDetail({ case: c, token, onBack, onEdit, onGoResult, onGoUpl
             <div style={{ display: 'flex', gap: 12, padding: 16, flexWrap: 'wrap' }}>
               {s.images.map((im) => (
                 <div key={im.id} style={{ width: 150 }}>
-                  <div style={{ height: 100 }}>
+                  <div style={{ height: 100, position: 'relative' }}>
                     {im.dbId ? <ImageThumb imageId={im.dbId} token={token} /> : null}
+                    {im.dbId && (
+                      <IconButton
+                        label="Xóa ảnh"
+                        size="sm"
+                        disabled={deletingImageId === im.dbId}
+                        onClick={() => handleDeleteImage(im.dbId!)}
+                        style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(255,255,255,.9)', boxShadow: 'var(--shadow-sm)' }}
+                      >
+                        <Icon name={deletingImageId === im.dbId ? 'loader-2' : 'x'} size={14} style={deletingImageId === im.dbId ? { animation: 'pa-spin 1s linear infinite' } : undefined} />
+                      </IconButton>
+                    )}
                   </div>
                   <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-strong)', marginTop: 6 }}>{im.id}</div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{im.desc || '—'}</div>
                   {im.dbId && (
-                    <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
-                      <Button variant="ghost" size="sm" iconLeft={<Icon name="pencil" />} onClick={() => onAnnotate(im.dbId!)} style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
+                      <Button variant="ghost" size="sm" iconLeft={<Icon name="pencil" />} onClick={() => onAnnotate(im.dbId!)} fullWidth>
                         Đánh dấu
                       </Button>
-                      <Button variant="ghost" size="sm" iconLeft={<Icon name="sparkles" />} onClick={() => onGoResult(im.dbId!)} style={{ flex: 1 }}>
+                      <Button variant="ghost" size="sm" iconLeft={<Icon name="sparkles" />} onClick={() => onGoResult(im.dbId!)} fullWidth>
                         Kết quả AI
                       </Button>
                     </div>

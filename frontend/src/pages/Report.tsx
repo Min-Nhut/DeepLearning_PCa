@@ -82,11 +82,6 @@ export function Report({ token, imageId, caseLabel, patientName, onBack }: {
               <div style={{ fontSize: 11, color: 'var(--blue-700)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 4 }}>Điểm Gleason</div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 30, color: 'var(--blue-900)', lineHeight: 1 }}>{review.primary_pattern ? `${review.primary_pattern}+${review.secondary_pattern}=${total}` : 'Lành tính'}</div>
             </div>
-            <div style={{ width: 1, alignSelf: 'stretch', background: 'var(--blue-200)' }} />
-            <div>
-              <div style={{ fontSize: 11, color: 'var(--blue-700)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>ISUP Grade Group</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--blue-900)', fontFamily: 'var(--font-display)' }}>{review.grade_group ? 'Group ' + review.grade_group : '—'}</div>
-            </div>
             <div style={{ flex: 1 }} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
               <Badge tone="success" dot>Độ tin cậy AI {clf?.primary_confidence != null ? `${Math.round(clf.primary_confidence)}%` : '—'}</Badge>

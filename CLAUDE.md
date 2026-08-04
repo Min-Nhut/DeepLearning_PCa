@@ -72,10 +72,6 @@ SQLite schema at [docs/schema.sql](docs/schema.sql). Hierarchy: **users → case
 - `reports`, `audit_logs` — export history and a basic action log (not a tamper-proof
   enterprise audit log — out of scope per PRD §5/§12).
 
-When building the backend, match these table/column names — the frontend mock data
-(`frontend/src/data/mock.ts`) already comments each field with its `schema.sql`
-counterpart (e.g. `hoTen` ↔ `cases.patient_name`).
-
 The live database file lives at `database/prostaai.db`, regenerated from `schema.sql` via
 `bash database/init_db.sh` (drops and recreates — empty, no seed data). **Foreign keys
 are off by default per SQLite connection** — any backend code opening this file must run
@@ -310,9 +306,6 @@ frontend/src/
   index.css               Google Fonts @import (must stay first) + Tailwind + tokens.css
   types.ts                Case/Slide/Image/Region/Nav/Role mock types + API types (ApiUser,
                            AdminStats, LogEntryApi, ModelInfoApi, MigrationPreview/Result, MeResponse)
-  data/mock.ts             Just grade() (ISUP calc, mirrors backend's _grade_group()) — every
-                           other mock export (CASES/USERS/LOG/MODELS/REGIONS/PIPELINE) has been
-                           removed now that every screen calls the real backend
   lib/icon.tsx             kebab-case -> lucide-react component resolver
   lib/nav.ts               Sidebar nav items per role, nav->title map, nav->parent-sidebar-item map
   lib/api.ts               fetch wrapper (ApiError, apiFetch) + typed calls to every backend
@@ -485,6 +478,22 @@ flat 2-role model has no per-doctor case ownership).
   auth-gated like everything else (**not** a public static mount, since this can be real
   patient imagery); the frontend fetches it as an authenticated blob
   (`components/ImageThumb.tsx`), not a plain `<img src>`.
+- `DELETE /api/images/{image_id}` (added 2026-08-05, for accidental captures — e.g. a
+  webcam selfie saved by mistake during live-capture testing) — `204`, no per-doctor
+  ownership check (matches the flat-role model everywhere else). DB-side cascade
+  (`preprocessing_results`/`inference_runs`→`segmentation_results`/
+  `classification_results`/`diagnostic_reviews`/`manual_annotations`, all `ON DELETE
+  CASCADE` on `images.id`) needs nothing extra — `PRAGMA foreign_keys=ON` is already set
+  per-connection. Files on disk are **not** cascaded by the DB, so the handler deletes them
+  explicitly: every derivative and every inference-run output for one image shares that
+  image's UUID stem as a filename prefix (`{stem}.jpg`, `{stem}_thumb.jpg`,
+  `{stem}_view.jpg`, `{stem}_normalized.jpg`, `{stem}_tissuemask.png`,
+  `{stem}_run{N}_segmask.png`, `{stem}_run{N}_heatmap.png`), so one
+  `dest_dir.glob(f"{stem}*")` + `unlink()` catches all of them without touching other
+  images in the same slide directory. Verified for real: deleted a test image through the
+  actual UI, confirmed via `sqlite3` that all cascaded rows were gone and via the
+  filesystem that every one of that image's files (not just the DB row) was actually
+  removed, while a sibling image's files in the same directory were untouched.
 - `GET /api/images/{image_id}/preprocessing` — returns the automatic preprocessing
   result for that image (see **Preprocessing** below): `is_blurry`, `quality_score`,
   and `has_normalized_image`/`has_tissue_mask` booleans (raw file paths never leave the
@@ -531,9 +540,10 @@ relying on a DB constraint that isn't there — matches the product intent of on
 copy per image (same assumption the mock `Viewer.tsx` already makes).
 - `PATCH` upserts (creates the row on first call), computes `total_score` and
   `grade_group` server-side from `primary_pattern`/`secondary_pattern` whenever both are
-  present — the exact same ISUP formula as `frontend/src/data/mock.ts`'s `grade()`,
-  reimplemented in Python (`_grade_group()` in `reviews.py`) so the backend is the
-  source of truth once this is wired to the frontend.
+  present, via `_grade_group()` in `reviews.py` (still the ISUP formula — kept in the API
+  response and the DB for anyone who wants it, e.g. future export/analysis, but **no
+  longer surfaced in the doctor-facing UI**, see the Pipeline/Viewer/Report subsection
+  below: the user wants results framed strictly as Gleason grading, not ISUP Grade Group).
   **`cancer_area_percentage` is not settable via this endpoint** — PRD §8.6 defines it
   as computed from segmentation mask/tissue area (an AI output), so fabricating a number
   by hand here would be exactly the kind of overclaim the design system's voice rules
@@ -809,6 +819,17 @@ the nav item is not real access control — the backend enforces it either way).
   AI" badge instead of the mockup's `pattern={c.gleason || '3'}` fallback — that fallback
   would otherwise paint a fake green "Pattern 3" chip on every newly created real case,
   which is exactly the kind of overclaim the design system's voice rules forbid.
+  **Bug fixed 2026-08-05**: each image tile's fixed 150px width couldn't fit "Đánh dấu" and
+  "Kết quả AI" side-by-side (`flex:1` each, ~73px — neither label fits at that width), so
+  the buttons overflowed their flex box and visually bled into the neighboring tile's
+  buttons. Fixed by stacking them vertically (`fullWidth` each) instead — confirmed via a
+  real bounding-box measurement in the browser (each button now exactly 150px wide, zero
+  overlap between tiles). Also added a small delete (`×`) icon overlaid on the thumbnail's
+  top-right corner, calling the new `DELETE /api/images/{id}` (see Case/Slide/Image API
+  above) behind a `window.confirm` — for removing accidental captures (e.g. a webcam
+  selfie saved by mistake) without deleting the whole case. `Upload.tsx`'s post-capture
+  grid got the same delete affordance, since that's literally the capture screen where a
+  mis-capture is first noticed.
 - **`Upload`** always shows a case picker + slide picker (pre-filled when reached via
   `CaseDetail`'s "Thêm ảnh", editable otherwise); "+ Slide mới" in the slide picker creates
   one on the spot. File upload and camera capture both post to the same endpoint with a
@@ -869,7 +890,20 @@ pipeline](#ai-inference-pipeline-backendappinference) for the endpoint contracts
 - **`Viewer`**: real slide image (`getImageBlobUrl(..., 'view')`, same auth-gated-blob
   pattern as `Annotate`) with the real mask/heatmap PNGs (`getMaskBlobUrl`/
   `getHeatmapBlobUrl`) layered on top via `AIOverlayToggle` (reused unchanged, just fed
-  `none`/`mask`/`heatmap` instead of the old `seg`/`gleason`/`heat`/`none`). Shows an
+  `none`/`mask`/`heatmap` instead of the old `seg`/`gleason`/`heat`/`none`). **Fixed
+  2026-08-05**: the mask layer used to render at `opacity: 0.55` blended over the tissue
+  image, which visibly muddied every class color away from the pipeline's actual output
+  (e.g. green read as murky olive over pink H&E) even though the underlying PNG's own
+  pixels were already correct — confirmed by pulling a real generated mask and inspecting
+  its raw pixel values with PIL/numpy against `pipeline.py`'s `MASK_COLORS_BGR`
+  (`#1a1a1a`/`#9e9e9e`/`#2ca02c`/`#ffd60a`/`#ff7f0e`/`#d62728` for
+  background/stroma/benign/gleason_3/4/5 — exactly matches; **no backend change needed**).
+  The mask layer now renders at full opacity with no blend, so "Mặt nạ phân đoạn" shows
+  the pipeline's true colors — confirmed in-browser by sampling the actually-rendered
+  `<img>` via canvas and getting back the exact same RGB values as the source PNG. The
+  heatmap layer is untouched (still `opacity: 0.6`) — it's an intentionally translucent
+  confidence overlay meant to be read together with the tissue underneath, a different
+  kind of layer than a discrete-class legend. Shows an
   explicit "Chưa có kết quả AI cho ảnh này" CTA (not an error banner) when
   `GET /api/images/{id}/inference` 404s — `api.getInference`/`api.getReview` both catch a
   404 and resolve `null` rather than throwing, specifically so `useApiData` treats "nothing
@@ -929,6 +963,116 @@ pipeline](#ai-inference-pipeline-backendappinference) for the endpoint contracts
   correctly shown) instead → real re-trigger → completed for real. Test case/images/
   uploaded files and all cascaded rows deleted afterward; the user's real case (`0001`)
   confirmed untouched.
+- **Results reframed as Gleason grading, not ISUP (2026-08-05)**: `CaseDetail`, `Viewer`,
+  and `Report` all used to show the Gleason score (`3+4=7`) with **no label at all**, and
+  "ISUP Grade Group N" as the only labeled text next to it — so the result read as if
+  ISUP were the primary output. Per the user's explicit call: results are Gleason grading,
+  not ISUP. Fixed by adding a clear "Điểm Gleason" eyebrow label wherever the score was
+  previously unlabeled (`CaseDetail`, `Viewer`) and removing the "ISUP Grade Group" line/
+  column entirely from all three screens. **Backend unchanged** — `_grade_group()` /
+  `diagnostic_reviews.grade_group` still exist and still get computed (still real ISUP
+  data, just no longer surfaced in the doctor-facing UI); `frontend/src/data/mock.ts`'s
+  now-fully-unused `grade()` helper (and the now-empty `data/` dir) were deleted. Verified
+  through the actual browser UI: manually set Primary=3/Secondary=4 on a real review,
+  confirmed `Viewer` and `Report` both show "Điểm Gleason / 3+4=7" with no "ISUP" text
+  anywhere (`grep ISUP frontend/src` returns nothing), and confirmed `CaseDetail`'s
+  case-level header still shows the neutral "Chưa có kết quả AI" badge as before (its
+  Gleason display path is unreachable for real cases regardless — no case-level aggregate
+  exists, see above — so this pass didn't change that pre-existing behavior, just the
+  label text for if/when it is ever reached).
+- **Cursor-anchored zoom + AI-independent manual diagnosis + manual mask overlay
+  (2026-08-05)**: three related `Viewer` changes, all confirmed via the real browser UI.
+  - **Zoom** used to scale the whole image from a fixed center (`width: ${zoom}%` on a
+    flex-centered wrapper — no anchor concept at all). Replaced with the
+    cursor-anchored technique: the wrapper keeps a fixed `width: 100%` "1x" reference frame
+    and gets `transform: scale(zoom/100)` + a dynamic `transformOrigin`. **Superseded
+    later the same day (see below)** — the wheel-driven trigger was replaced with an
+    explicit point-select flow, but the `transform`/`transformOrigin` mechanics themselves
+    are unchanged and still the foundation.
+  - **Manual diagnosis without AI**: the doctor review form + Lưu/Xác nhận & khóa/Xem báo
+    cáo footer used to only render inside the `run?.status === 'completed'` branch — a
+    doctor couldn't record a diagnosis at all until AI had finished, even though
+    `diagnostic_reviews.run_id` is nullable and `PATCH /api/images/{id}/review` never
+    required a run to exist. Restructured so only the **read-only AI results block**
+    stays conditional on AI completion; the review form and footer are now always
+    rendered. Verified: saved a fully manual review (`run_id: null` confirmed via direct
+    API read) on an image with **no inference run at all**, confirmed `Report` renders it
+    correctly.
+  - **Manual mask overlay**: rather than building a second, separate raster-painting tool,
+    reused the existing polygon annotation system (`manual_annotations`/`Annotate.tsx`,
+    already independent of any AI run) — renamed its null-pattern option from "Không gán
+    nhãn" (unlabeled) to "Lành tính" (benign, matching `Viewer`'s own `PatternPicker` and
+    `GleasonChip`'s existing 'benign' rendering) and its color from gray to
+    `var(--gleason-benign)`, so every saved region is a real tissue class
+    (benign/G3/G4/G5) — a genuine manual mask, not new schema/backend. `Viewer` now fetches
+    `listAnnotations` and adds a `"Mask thủ công"` entry to the `AIOverlayToggle` (only
+    when annotations exist, same pattern as `mask`/`heatmap`), rendering the saved polygons
+    as filled colored shapes via the same `<svg>`+`<polygon>` technique `Annotate.tsx`
+    already uses (read-only in `Viewer` — editing still happens on `Annotate`, reached via
+    a new "Vẽ / sửa mask thủ công" footer button → new `onAnnotate` prop, wired through
+    `App.tsx`'s existing `goAnnotate`/`annotateImageId` plumbing). Verified: drew a
+    Pattern-4 region and a benign region via `Annotate`, confirmed both render in
+    `Viewer`'s "Mask thủ công" layer with the exact same points and correct colors
+    (`var(--gleason-4)` / `var(--gleason-benign)`), zoomed/panned in sync with the base
+    image (same transformed wrapper). No backend changes for any of the three.
+- **Zoom made explicit (point-select, not wheel) + zoom added to `Annotate` + drag-tracing
+  replaces click-vertex drawing (2026-08-05, same day)**: user feedback on the zoom pass
+  above — zoom should not be automatic/wheel-driven, the same zoom should exist on the
+  mask-drawing screen too, and mask drawing itself should switch from click-each-vertex to
+  a genuinely different input method. All three confirmed via clarifying questions before
+  implementing.
+  - **`Viewer`**: removed `onWheel` entirely. Added a "Chọn điểm phóng to" (crosshair)
+    `IconButton` that arms `pickingZoomPoint`; the next click on the image (handled on the
+    **outer, stable, non-scaled** container) sets `zoomOrigin` from that click's `%`
+    position and disarms — the existing `+`/`-` buttons are otherwise unchanged, they just
+    zoom around whichever point was last explicitly picked (default center). A small
+    persistent crosshair marker shows the current zoom center, positioned on that same
+    outer container (not inside the scaled wrapper) at `left/top: ${zoomOrigin}%` — correct
+    at any zoom level because the CSS `transform-origin` point is, by definition, the one
+    point that never moves on screen when the wrapper is scaled, so a naive percentage
+    placed on the *unscaled* outer container tracks it exactly.
+  - **`Annotate`**: gained the identical zoom mechanics (previously had none at all).
+    Required a second ref: `outerRef` (stable, used for zoom-point-picking math, same as
+    `Viewer`) and `wrapperRef` (the scaled element). This split matters because *drawing*
+    coordinates (stored as absolute 0–100 image-space `Point[]` in `manual_annotations`)
+    need different math than zoom-point-picking — a transformed element's own
+    `getBoundingClientRect()` already reflects its current on-screen scale/position, so
+    `(clientX - wrapperRect.left) / wrapperRect.width` correctly maps a click back to 0–1
+    image space *at any zoom/pan level*, whereas zoom-origin-picking must use the
+    **outer, unscaled** container's rect instead (since CSS `transform-origin` percentages
+    always resolve against an element's own pre-transform box). Getting this backwards
+    would have made drawing precision-zoom pointless (points would land in the wrong place
+    once zoomed) or broken zoom-point-picking (origin would drift). Both are now correct
+    and independently verified.
+  - **Drag-tracing replaces click-to-place-vertex**: `handleSvgClick`'s
+    click-per-vertex-with-proximity-to-close logic is gone. New `onPointerDown`/
+    `onPointerMove`/`onPointerUp` handlers on the `<svg>` (Pointer Events, with
+    `setPointerCapture` for reliable tracking): press starts a trace, drag appends points
+    (only when moved ≥0.8% of image space from the last recorded point, keeping point
+    count sane), release auto-closes (≥3 points → straight to the existing `'pending'`
+    pattern-picker/save form, unchanged downstream; <3 points → discarded, stays in
+    `'drawing'` mode). Removed: the "Xong" button, the proximity-to-first-point close
+    logic, the "N điểm — click gần điểm đầu để đóng vùng" hint (now "Giữ và kéo trên ảnh để
+    vẽ vùng, thả ra để hoàn tất"), and the per-vertex `<circle>` markers (just the live
+    polyline is shown while tracing). Selecting/editing/deleting saved annotations and
+    every backend call are untouched — this only changes how *new* points get drawn; the
+    `Point[]` data shape and every downstream consumer (including `Viewer`'s "Mask thủ
+    công" overlay) are unaffected.
+  - **Verified through the actual browser UI**, the critical check being coordinate
+    correctness under zoom (not just that buttons visually respond): picked a zoom point,
+    zoomed to 200% via the `+` button, then dispatched real `pointerdown`/`pointermove`×2/
+    `pointerup` events at screen coordinates computed from the *live post-transform*
+    `wrapperRef` rect for three target image-space points. The **saved** annotation's
+    points (read back via `GET /api/images/{id}/annotations`) matched the intended
+    0–100 targets almost exactly (sub-0.01% on x, a small *constant* ~0.5% offset on y
+    across all three points — consistent with test-harness rounding, not a distortion,
+    since the triangle's shape/relative spacing was preserved exactly) — confirming the
+    `wrapperRef`-based coordinate math is correct even at high zoom with an off-center
+    origin. Confirmed the traced shape then rendered correctly in `Viewer`'s "Mask thủ
+    công" layer with the exact same points and color. Also confirmed the wheel genuinely
+    no longer zooms `Viewer` (dispatched a real `wheel` event, `transform` unchanged).
+    Test case/images and all cascaded rows deleted afterward; the user's real case (`0001`)
+    confirmed untouched.
 
 ## Design source
 
