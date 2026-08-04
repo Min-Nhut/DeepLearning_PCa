@@ -690,10 +690,17 @@ even looks at (see [AI models](#ai-models--training-methodology-colab-notebooks)
   library's `albucore` dependency pulled in a `numkong` native extension with a broken
   DLL on this Windows machine, so it was dropped entirely in favor of a ~10-line manual
   reimplementation of the exact same `Resize(bilinear) + Normalize(ImageNet mean/std)`
-  the notebooks used via `albumentations`. `classification_results.heatmap_file_path` is
-  a **v1 confidence heatmap** (color intensity by predicted-class confidence per patch),
-  not real Grad-CAM/Attention-Rollout yet — that's a v2 follow-up (see Next steps),
-  porting the notebooks' per-architecture hooks into a production path is real extra work.
+  the notebooks used via `albumentations`. **Heatmap generation removed (2026-08-05)**:
+  `pipeline.py` used to also build a per-patch confidence heatmap
+  (`classification_results.heatmap_file_path`) via `cv2.applyColorMap`, but this was only
+  ever a v1 stand-in (color intensity by predicted-class confidence, not real Grad-CAM/
+  Attention-Rollout) and the user asked for it dropped from the prediction output entirely
+  rather than carried forward — see the dated bullet under
+  [Frontend↔backend integration](#frontendbackend-integration) for the full removal
+  (backend + frontend + the now-deleted `GET /api/inference-runs/{run_id}/heatmap`
+  endpoint). `classification_results.heatmap_file_path` stays as a DB column (harmless,
+  always `NULL` going forward) — dropping a live SQLite column wasn't worth the migration
+  risk for a column nothing writes to anymore.
 
 **Endpoints** (`routers/inference.py`, `Depends(get_current_user)`, not admin-only):
 - `POST /api/images/{image_id}/inference` — body `{segmentation_model?, classification_model?}`
@@ -709,8 +716,9 @@ even looks at (see [AI models](#ai-models--training-methodology-colab-notebooks)
   → `status='failed'` + `error_message`, never leaves a run stuck at `running`.
 - `GET /api/images/{image_id}/inference` — latest run for that image, with nested
   segmentation/classification results if present.
-- `GET /api/inference-runs/{run_id}/mask`, `.../heatmap` — auth-gated PNG serving, same
-  blob-response pattern as `GET /api/images/{id}/file`.
+- `GET /api/inference-runs/{run_id}/mask` — auth-gated PNG serving, same blob-response
+  pattern as `GET /api/images/{id}/file`. (`.../heatmap` existed here too until
+  2026-08-05, removed alongside heatmap generation — see above.)
 - `GET /api/admin/models` (admin-only) and **`GET /api/models`** (any authenticated user,
   added 2026-08-04 for the doctor-facing model-selector — see below) both report
   `checkpoint_available`/`trained_at`/`status` per architecture, computed live via the
@@ -1073,6 +1081,63 @@ pipeline](#ai-inference-pipeline-backendappinference) for the endpoint contracts
     no longer zooms `Viewer` (dispatched a real `wheel` event, `transform` unchanged).
     Test case/images and all cascaded rows deleted afterward; the user's real case (`0001`)
     confirmed untouched.
+- **Heatmap removed from predictions + mask shown as a real overlay + Gleason button
+  colors matched to the mask palette (2026-08-05)**: three related fixes from the same
+  user request, all confirmed via the real browser UI.
+  - **Heatmap removed end-to-end**, not just hidden: `pipeline.py`'s `run_pipeline()` no
+    longer builds the per-patch confidence heatmap at all (dropped the `heatmap` array,
+    the `cv2.applyColorMap` call, and `PipelineResult.heatmap_path`) — this was only ever
+    a v1 stand-in for real Grad-CAM/Attention-Rollout (see [AI inference
+    pipeline](#ai-inference-pipeline-backendappinference)), and the user asked for it gone
+    from the prediction rather than upgraded, so the "v2 heatmap" Next-steps item is now
+    moot instead of done. `GET /api/inference-runs/{run_id}/heatmap` and
+    `ClassificationResultOut.has_heatmap` were deleted along with it (backend); frontend
+    `getHeatmapBlobUrl`/`ApiClassificationResult.has_heatmap` and `Viewer.tsx`'s
+    `'heatmap'` overlay layer (state, fetch effect, toggle option, `<img>`) were removed
+    too — confirmed in-browser that `AIOverlayToggle` on a freshly-completed real run only
+    ever offers "Ảnh gốc"/"Mặt nạ phân đoạn" (no "Heatmap" option appears). The DB column
+    `classification_results.heatmap_file_path` was left in place (always `NULL` from now
+    on) rather than dropped — not worth a live-DB migration for an unused column.
+  - **Mask now renders as a real overlay, not an opaque replacement**: the previous pass
+    (2026-08-05, earlier bullet above) had deliberately set the mask `<img>` to full
+    opacity with no blending, reasoning that blending "muddied" the AI's true colors. The
+    user's read on that in practice was the opposite of the goal — they want to see the
+    mask *and* the underlying tissue at once ("ảnh chồng lắp giữa mask và ảnh gốc"), which
+    a fully opaque top layer can't do (it just replaces the tissue view entirely while
+    that toggle is active). Reverted to a semi-transparent overlay (`opacity: 0.5` on the
+    mask `<img>`, default `mixBlendMode: normal`) — confirmed via `getComputedStyle` in
+    the browser that the rendered mask layer has `opacity: 0.5` and, visually, that the
+    pink H&E tissue is still visible underneath the segmentation colors instead of being
+    fully hidden.
+  - **Gleason button/chip colors now match the mask's own palette**: `--gleason-3/4/5/
+    benign` in `styles/tokens.css` used to be an unrelated brand-teal/amber/red-orange/
+    blue set with no relationship to `pipeline.py`'s `MASK_COLORS_BGR`, so a doctor
+    comparing the mask overlay against the Primary/Secondary pattern-picker buttons or
+    `GleasonChip` badges was comparing two different color languages for the same tissue
+    classes. Retokenized to the mask's exact colors — `--gleason-3: #ffd60a` (yellow),
+    `--gleason-4: #ff7f0e` (orange), `--gleason-5: #d62728` (red), `--gleason-benign:
+    #2ca02c` (green) — sourced directly from `MASK_COLORS_BGR`, not eyeballed, so the two
+    can't drift apart again without someone editing both in the same place. Bright yellow
+    (`gleason-3`) with the existing hardcoded white chip text was unreadable, so
+    `GleasonChip` gained a per-pattern `text` color (`var(--gleason-3-text)` →
+    `var(--gray-900)` for pattern 3 only, white everywhere else) instead of assuming white
+    always works — every other consumer of these tokens (`DoctorDashboard`'s legend,
+    `Annotate`'s manual-mask polygon colors, `Viewer`'s manual-mask overlay) picks the new
+    colors up automatically since they all reference the same CSS variables, no per-file
+    changes needed there.
+  - **Verified through the actual browser UI** (doctor account
+    `lam.nguyen@benhvien.vn`): uploaded a real PANDA test tiff to a disposable case,
+    triggered a real inference run (`unet_efficientnet_b0` + `efficientnet_b0`,
+    completed for real: primary=5, secondary=4, 72.8% cancer area) → confirmed
+    `GET /api/images/{id}/inference`'s JSON has no `has_heatmap` key at all (schema field
+    removed, not just `false`) → `Viewer`'s overlay toggle showed only "Ảnh gốc"/"Mặt nạ
+    phân đoạn" → toggled the mask on and confirmed via `getComputedStyle` that the mask
+    `<img>` renders at `opacity: 0.5` with the tissue visible underneath → confirmed the
+    Primary/Secondary pattern buttons render Pattern 3 as a yellow chip with dark (not
+    white) text, Pattern 4 orange, Pattern 5 red, all matching the mask swatch colors.
+    Test case/image/run and all cascaded rows deleted afterward (`DELETE
+    /api/images/{id}` + direct `sqlite3` cleanup for the case/slide); the user's real case
+    (`0001`) confirmed untouched.
 
 ## Design source
 
@@ -1141,8 +1206,12 @@ Roughly in the order they unblock each other:
    `mpp-y` or equivalent), add the "độ phóng đại" field to Upload/live-capture (PRD §8.4)
    so 4x/10x microscope captures can be rescaled to match the 40x≈Level-0 training scale
    instead of guessed.
-5. **v2 heatmap**: real Grad-CAM (3 CNN architectures) / Attention Rollout (ViT), replacing
-   the v1 per-patch confidence heatmap currently in `pipeline.py`.
+5. ~~v2 heatmap~~ — **moot (2026-08-05)**: the user asked to drop heatmap output from the
+   prediction entirely rather than upgrade it, so the v1 confidence heatmap that used to
+   motivate this item was removed instead of replaced — see the dated bullet under
+   [Frontend↔backend integration](#frontendbackend-integration). No heatmap of any kind
+   (v1 or Grad-CAM/Attention-Rollout) ships now; revisit only if the user asks for
+   explainability output again later.
 6. `ai_models_config.py` — done (2026-08-04). **Still pending, needs the user's
    confirmation to proceed**: rewrite `docs/PRD.md`'s SICAPv2/ResNeXt50/binary-mask
    wording — larger than first scoped, spans ~8 sections (§0, §3, §4, §8.3, §8.5, §9.3,

@@ -14,7 +14,7 @@ import * as api from '../lib/api';
 import { useApiData } from '../lib/useApiData';
 import type { DiagnosticReviewUpdate, Point } from '../types';
 
-type Layer = 'none' | 'mask' | 'heatmap' | 'manual';
+type Layer = 'none' | 'mask' | 'manual';
 type Pattern = 3 | 4 | 5 | null;
 
 function colorFor(pattern: Pattern): string {
@@ -78,7 +78,6 @@ export function Viewer({ token, imageId, caseLabel, onBack, onGoReport, onRunAI,
 
   const [imgUrl, setImgUrl] = useState<string | null>(null);
   const [maskUrl, setMaskUrl] = useState<string | null>(null);
-  const [heatmapUrl, setHeatmapUrl] = useState<string | null>(null);
   const [layer, setLayer] = useState<Layer>('none');
   const [zoom, setZoom] = useState(100);
   const [zoomOrigin, setZoomOrigin] = useState({ x: 50, y: 50 });
@@ -105,18 +104,13 @@ export function Viewer({ token, imageId, caseLabel, onBack, onGoReport, onRunAI,
 
   useEffect(() => {
     let maskObjUrl: string | null = null;
-    let heatObjUrl: string | null = null;
     let cancelled = false;
     setMaskUrl(null);
-    setHeatmapUrl(null);
     if (run?.segmentation?.has_mask) {
       api.getMaskBlobUrl(token, run.id).then((u) => { if (!cancelled) { maskObjUrl = u; setMaskUrl(u); } }).catch(() => {});
     }
-    if (run?.classification?.has_heatmap) {
-      api.getHeatmapBlobUrl(token, run.id).then((u) => { if (!cancelled) { heatObjUrl = u; setHeatmapUrl(u); } }).catch(() => {});
-    }
-    return () => { cancelled = true; if (maskObjUrl) URL.revokeObjectURL(maskObjUrl); if (heatObjUrl) URL.revokeObjectURL(heatObjUrl); };
-  }, [token, run?.id, run?.segmentation?.has_mask, run?.classification?.has_heatmap]);
+    return () => { cancelled = true; if (maskObjUrl) URL.revokeObjectURL(maskObjUrl); };
+  }, [token, run?.id, run?.segmentation?.has_mask]);
 
   // Prefill the editable review form from the existing draft, or — if no
   // draft exists yet — from the AI's own classification, so the form reads
@@ -195,7 +189,6 @@ export function Viewer({ token, imageId, caseLabel, onBack, onGoReport, onRunAI,
   const overlayLayers = [
     { key: 'none', label: 'Ảnh gốc' },
     ...(maskUrl ? [{ key: 'mask', label: 'Mặt nạ phân đoạn' }] : []),
-    ...(heatmapUrl ? [{ key: 'heatmap', label: 'Heatmap' }] : []),
     ...(annotations.length > 0 ? [{ key: 'manual', label: 'Mask thủ công' }] : []),
   ];
 
@@ -207,8 +200,7 @@ export function Viewer({ token, imageId, caseLabel, onBack, onGoReport, onRunAI,
       {imgUrl ? (
         <div style={{ position: 'relative', width: '100%', transformOrigin: `${zoomOrigin.x}% ${zoomOrigin.y}%`, transform: `scale(${zoom / 100})`, transition: 'transform var(--dur-fast) var(--ease-standard)' }}>
           <img src={imgUrl} alt="" style={{ width: '100%', display: 'block' }} />
-          {layer === 'mask' && maskUrl && <img src={maskUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />}
-          {layer === 'heatmap' && heatmapUrl && <img src={heatmapUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.6 }} />}
+          {layer === 'mask' && maskUrl && <img src={maskUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.5 }} />}
           {layer === 'manual' && annotations.length > 0 && (
             <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
               {annotations.map((a) => (

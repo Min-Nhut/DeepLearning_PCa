@@ -53,8 +53,7 @@ def _run_out(run: InferenceRun, seg: SegmentationResult | None, clf: Classificat
         classification=ClassificationResultOut(
             id=clf.id, run_id=clf.run_id, primary_pattern=clf.primary_pattern,
             primary_confidence=clf.primary_confidence, secondary_pattern=clf.secondary_pattern,
-            secondary_confidence=clf.secondary_confidence, has_heatmap=bool(clf.heatmap_file_path),
-            created_at=clf.created_at,
+            secondary_confidence=clf.secondary_confidence, created_at=clf.created_at,
         ) if clf else None,
     )
 
@@ -86,7 +85,6 @@ def _execute(run_id: int, image_path: Path, seg_arch: str, clf_arch: str, dest_d
             primary_confidence=result.primary_confidence,
             secondary_pattern=result.secondary_pattern,
             secondary_confidence=result.secondary_confidence,
-            heatmap_file_path=str(result.heatmap_path.relative_to(UPLOAD_ROOT.parent)) if result.heatmap_path else None,
         ))
         run.status = "completed"
         run.completed_at = db.execute(text("SELECT datetime('now')")).scalar()
@@ -174,15 +172,4 @@ def get_mask(run_id: int, db: Session = Depends(get_db)) -> Response:
     path = UPLOAD_ROOT.parent / seg.mask_file_path
     if not path.exists():
         raise HTTPException(status.HTTP_404_NOT_FOUND, "File mask không còn tồn tại trên đĩa")
-    return Response(content=path.read_bytes(), media_type="image/png")
-
-
-@router.get("/inference-runs/{run_id}/heatmap")
-def get_heatmap(run_id: int, db: Session = Depends(get_db)) -> Response:
-    clf = db.query(ClassificationResult).filter(ClassificationResult.run_id == run_id).first()
-    if clf is None or not clf.heatmap_file_path:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Chưa có heatmap cho lần chạy này")
-    path = UPLOAD_ROOT.parent / clf.heatmap_file_path
-    if not path.exists():
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "File heatmap không còn tồn tại trên đĩa")
     return Response(content=path.read_bytes(), media_type="image/png")

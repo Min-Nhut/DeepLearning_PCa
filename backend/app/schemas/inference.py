@@ -23,7 +23,6 @@ class ClassificationResultOut(BaseModel):
     primary_confidence: float | None
     secondary_pattern: int | None
     secondary_confidence: float | None
-    has_heatmap: bool
     created_at: str
 
 

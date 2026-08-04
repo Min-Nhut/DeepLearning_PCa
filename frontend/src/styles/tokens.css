@@ -36,10 +36,14 @@
   --red-600:   #d33b3b;
   --red-100:   #fbe4e4;
 
-  --gleason-3: #2f9e6b;
-  --gleason-4: #e0a12e;
-  --gleason-5: #d0492f;
-  --gleason-benign: #4aa6ec;
+  /* Match the AI segmentation mask's own palette (backend
+     app/inference/pipeline.py's MASK_COLORS_BGR) so the doctor-facing
+     Gleason chips/buttons read as the same colors as the mask overlay. */
+  --gleason-3: #ffd60a;
+  --gleason-4: #ff7f0e;
+  --gleason-5: #d62728;
+  --gleason-benign: #2ca02c;
+  --gleason-3-text: var(--gray-900);
 
   /* ============ SEMANTIC ALIASES ============ */
   --brand:            var(--blue-900);

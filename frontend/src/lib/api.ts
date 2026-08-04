@@ -253,10 +253,6 @@ export function getMaskBlobUrl(token: string, runId: number): Promise<string> {
   return getBlobUrl(token, `/api/inference-runs/${runId}/mask`);
 }
 
-export function getHeatmapBlobUrl(token: string, runId: number): Promise<string> {
-  return getBlobUrl(token, `/api/inference-runs/${runId}/heatmap`);
-}
-
 // ---------- diagnostic review ----------
 export async function getReview(token: string, imageId: number): Promise<ApiDiagnosticReview | null> {
   try {

@@ -53,7 +53,6 @@ class PipelineResult:
     cancer_area_px: int
     total_tissue_area_px: int
     cancer_area_percentage: float | None
-    heatmap_path: Path | None
     primary_pattern: int | None
     primary_confidence: float | None
     secondary_pattern: int | None
@@ -102,7 +101,6 @@ def run_pipeline(image_path: Path, seg_arch: str, clf_arch: str, output_dir: Pat
     pattern_area: dict[int, int] = {3: 0, 4: 0, 5: 0}
     pattern_confidence_sum: dict[int, float] = {3: 0.0, 4: 0.0, 5: 0.0}
     pattern_patch_count: dict[int, int] = {3: 0, 4: 0, 5: 0}
-    heatmap = np.zeros((h, w), dtype=np.float32)
 
     for patch in patches:
         ph, pw = patch.image.shape[:2]
@@ -128,7 +126,6 @@ def run_pipeline(image_path: Path, seg_arch: str, clf_arch: str, output_dir: Pat
         pattern_area[pattern] += patch_area
         pattern_confidence_sum[pattern] += confidence * patch_area
         pattern_patch_count[pattern] += 1
-        heatmap[patch.y:patch.y + ph, patch.x:patch.x + pw] = confidence
 
     cancer_area_px = int(np.isin(full_mask, CANCER_CLASSES).sum())
     total_tissue_area_px = int(np.isin(full_mask, TISSUE_CLASSES).sum())
@@ -156,18 +153,11 @@ def run_pipeline(image_path: Path, seg_arch: str, clf_arch: str, output_dir: Pat
         colored[full_mask == cls] = color
     cv2.imwrite(str(mask_path), colored)
 
-    heatmap_path = None
-    if heatmap.max() > 0:
-        heatmap_path = output_dir / f"{stem}_heatmap.png"
-        heatmap_color = cv2.applyColorMap((heatmap * 255).astype(np.uint8), cv2.COLORMAP_JET)
-        cv2.imwrite(str(heatmap_path), heatmap_color)
-
     return PipelineResult(
         mask_path=mask_path,
         cancer_area_px=cancer_area_px,
         total_tissue_area_px=total_tissue_area_px,
         cancer_area_percentage=cancer_area_percentage,
-        heatmap_path=heatmap_path,
         primary_pattern=primary_pattern,
         primary_confidence=primary_confidence,
         secondary_pattern=secondary_pattern,

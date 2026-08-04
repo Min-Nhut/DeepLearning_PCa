@@ -191,7 +191,6 @@ export interface ApiClassificationResult {
   primary_confidence: number | null;
   secondary_pattern: 3 | 4 | 5 | null;
   secondary_confidence: number | null;
-  has_heatmap: boolean;
   created_at: string;
 }
 
