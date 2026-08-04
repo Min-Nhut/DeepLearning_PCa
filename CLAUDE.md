@@ -249,9 +249,12 @@ Gleason-scoring convention) — **not yet fully speced**, but this ordering is s
   multiple" — 3 of the 4 trained architectures** (dropped plain DeepLabV3, kept U-Net×2 +
   DeepLabV3+), confirmed 2026-08-04, based on their own real eval results
   (`segmentation_results.csv`), not the paper's winner. **Classification: still deploying
-  all 4** (no architecture dropped yet) — a model-selector UI to actually choose per run
-  is still pending (see Next steps), today the trigger endpoint just defaults to the
-  first available architecture per task.
+  all 4** (no architecture dropped yet). A model-selector UI now exists (2026-08-04, see
+  [Frontend↔backend integration](#frontendbackend-integration)'s Pipeline/Viewer/Report
+  subsection) — the doctor picks an architecture per task per run on the `Pipeline` screen
+  before triggering; the trigger endpoint's own "first available architecture per task"
+  default only kicks in if the request omits a choice (still the behavior for any direct
+  API caller).
 - **Checkpoint files**: real `.pt` files now present — `backend/models/classification/
   {densenet121,efficientnet_b0,inception_v3,vit_b_16}_best.pt` (4) and `backend/models/
   segmentation/{unet_densenet121,unet_efficientnet_b0,deeplabv3plus_efficientnet_b0}
@@ -698,11 +701,13 @@ even looks at (see [AI models](#ai-models--training-methodology-colab-notebooks)
   segmentation/classification results if present.
 - `GET /api/inference-runs/{run_id}/mask`, `.../heatmap` — auth-gated PNG serving, same
   blob-response pattern as `GET /api/images/{id}/file`.
-- `GET /api/admin/models` reports `checkpoint_available`/`trained_at`/`status` per
-  architecture, computed live in the router (`registry.is_available(task_type, arch_key)`
-  + the checkpoint file's mtime) — never baked into `ai_models_config.py`, so dropping a
-  new checkpoint in changes the API response with zero file edits. Verified for real: all
-  4 classification entries and all 3 deployed segmentation entries show
+- `GET /api/admin/models` (admin-only) and **`GET /api/models`** (any authenticated user,
+  added 2026-08-04 for the doctor-facing model-selector — see below) both report
+  `checkpoint_available`/`trained_at`/`status` per architecture, computed live via the
+  shared `ai_models_config.list_model_infos()` helper (`registry.is_available(task_type,
+  arch_key)` + the checkpoint file's mtime) — never baked into `ai_models_config.MODELS`
+  itself, so dropping a new checkpoint in changes the API response with zero file edits.
+  Verified for real: all 4 classification entries and all 3 deployed segmentation entries show
   `checkpoint_available: true` with the user's actual metrics — all 7 checkpoints load
   successfully through `registry.load()` with `strict=True`, confirmed via a real forward
   pass, not just `state_dict` loading.
@@ -838,12 +843,29 @@ pipeline](#ai-inference-pipeline-backendappinference) for the endpoint contracts
   unchanged) and "Kết quả AI" (→ `Viewer` for that image). The case-level "Chạy phân tích
   AI" header button was removed — a case can have 0..N images across N slides, so a
   case-level trigger was always ambiguous about which image it meant.
-- **`Pipeline`**: on mount, `GET`s the latest run for the image; if none exists, `POST`s one
-  (default model selection — no selector UI yet, see Next steps); polls every ~2.5s while
-  `pending`/`running`. Renders 3 honest states (running/completed/failed) with a *static*
-  reference list of the real pipeline stages — deliberately not an animated per-step
-  tracker, since the backend only reports coarse status, and ticking off fake steps would
-  fabricate progress that isn't real.
+- **`Pipeline`**: on mount, `GET`s the latest run for the image. If one already exists (any
+  status — pending/running/completed/failed), skips straight to the status display below.
+  If none exists yet, shows a **model-selector "pick" screen** first (added 2026-08-04):
+  two `Select`s (segmentation, classification), populated from the new `GET /api/models`
+  (any authenticated user — `GET /api/admin/models` is `require_admin`-gated, doctors
+  aren't admins, so a separate endpoint was needed; both now share one
+  `ai_models_config.list_model_infos()` helper so they can't drift apart), **filtered to
+  `checkpoint_available: true` only** and defaulted to the first available entry per task
+  (matches the trigger endpoint's own default). Each option shows the model's real `name`
+  + a couple of its real `metrics` as a hint. "Bắt đầu phân tích" then `POST`s the run with
+  the doctor's actual picks. Once a run exists (freshly triggered or found on mount), polls
+  every ~2.5s while `pending`/`running` and renders 3 honest states (running/completed/
+  failed) with a *static* reference list of the real pipeline stages — deliberately not an
+  animated per-step tracker, since the backend only reports coarse status, and ticking off
+  fake steps would fabricate progress that isn't real. On `failed`, "Thử lại" goes back to
+  the picker (pre-filled with the failed run's own architecture choices, but **only if each
+  one is still a real available checkpoint** — falls back to the default otherwise, so a
+  bogus/removed arch_key never gets silently resubmitted) rather than blindly retriggering.
+  **Bug fixed in this pass**: the previous retry logic only called `triggerInference()`
+  when `getInference()` returned nothing — since a failed run row still exists (non-null),
+  that condition never actually re-triggered anything; "Thử lại" just re-displayed the same
+  stale failure forever. The picker flow fixes this as a side effect (retry always routes
+  through an explicit new `POST`).
 - **`Viewer`**: real slide image (`getImageBlobUrl(..., 'view')`, same auth-gated-blob
   pattern as `Annotate`) with the real mask/heatmap PNGs (`getMaskBlobUrl`/
   `getHeatmapBlobUrl`) layered on top via `AIOverlayToggle` (reused unchanged, just fed
@@ -885,6 +907,28 @@ pipeline](#ai-inference-pipeline-backendappinference) for the endpoint contracts
   `inference_runs`/`segmentation_results`/`classification_results`/`diagnostic_reviews`
   rows were deleted afterward; the user's real case (`0001`) was confirmed untouched
   throughout.
+- **Model-selector, verified through the actual browser UI** (2026-08-04, same account/
+  discipline as above): confirmed `curl GET /api/models` with a doctor token returns the
+  same 7 real entries as `GET /api/admin/models` with an admin token (the auth fix actually
+  works, not just that the route exists), and a doctor is still `403`'d on
+  `/api/admin/models` itself. In-browser: new image, no run yet → `Pipeline` showed the
+  picker with real architecture names + metric hints, defaults pre-selected → picked
+  non-default architectures (`deeplabv3plus_efficientnet_b0` + `vit_b_16`) → "Bắt đầu phân
+  tích" → confirmed via `GET /api/images/{id}/inference` that
+  `segmentation_model_version`/`classification_model_version` matched exactly what was
+  picked (not the default), and the run completed for real (this one also produced a real
+  heatmap, unlike the first pass's test image). Forced a real failure without touching any
+  real checkpoint (`curl POST .../inference -d '{"segmentation_model":"bogus_arch"}'`) →
+  opened `Pipeline` for that image → landed on the failed state with the real error message
+  → "Thử lại" → **this is where the retry-prefill bug above was actually caught**: the
+  picker's segmentation `<select>` silently fell back to its first `<option>` in the DOM
+  (since `bogus_arch` matched no real option), but the underlying React state still held
+  `bogus_arch` and would have resubmitted it — fixed by only prefilling from the failed
+  run's choice when it's still in the available-checkpoints list, confirmed by re-testing
+  the same retry and seeing the picker land on a real architecture (with its metrics hint
+  correctly shown) instead → real re-trigger → completed for real. Test case/images/
+  uploaded files and all cascaded rows deleted afterward; the user's real case (`0001`)
+  confirmed untouched.
 
 ## Design source
 
@@ -941,12 +985,14 @@ Roughly in the order they unblock each other:
    `cancer_area_percentage` is never copied from `segmentation_results` into
    `diagnostic_reviews` — `Viewer` shows the real number since it reads the inference run
    directly.
-3. **Model-selector UI** (Upload or Pipeline screen) — now genuinely useful: 4
-   classification architectures and 3 segmentation architectures all have real
-   checkpoints and all default to "first available" today. Reads `GET /api/admin/models`'s
-   `checkpoint_available`, lets the doctor pick an architecture per run. **Now the
-   top-priority item** — the pipeline is fully demoable end-to-end, this is the next
-   genuinely missing piece rather than a nice-to-have.
+3. ~~Model-selector UI~~ — **done (2026-08-04)**: `Pipeline.tsx` now shows a picker (2
+   `Select`s, real architecture names + metric hints, filtered to `checkpoint_available:
+   true`) before triggering any new run, backed by a new non-admin `GET /api/models`
+   endpoint (`GET /api/admin/models` was `require_admin`-gated — doctors couldn't call it).
+   Also fixed a real retry bug caught along the way: "Thử lại" after a failed run never
+   actually re-triggered anything before this pass. See
+   [Frontend↔backend integration](#frontendbackend-integration)'s Pipeline/Viewer/Report
+   subsection for the full writeup and verification.
 4. Pull the real µm/pixel value from a sample PANDA WSI file's metadata (`openslide.mpp-x`/
    `mpp-y` or equivalent), add the "độ phóng đại" field to Upload/live-capture (PRD §8.4)
    so 4x/10x microscope captures can be rescaled to match the 40x≈Level-0 training scale

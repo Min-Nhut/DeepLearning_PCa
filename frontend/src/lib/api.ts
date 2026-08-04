@@ -97,6 +97,12 @@ export function getModels(token: string): Promise<ModelInfoApi[]> {
   return apiFetch('/api/admin/models', {}, token);
 }
 
+// Same data as getModels(), just not admin-gated — for the doctor-facing
+// model-selector on Pipeline.tsx (doctors aren't admins).
+export function getAvailableModels(token: string): Promise<ModelInfoApi[]> {
+  return apiFetch('/api/models', {}, token);
+}
+
 export async function exportLibrary(
   token: string,
   format: 'csv' | 'json',

@@ -5,6 +5,7 @@ from fastapi.responses import Response
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from ..ai_models_config import list_model_infos
 from ..audit import write_audit_log
 from ..database import SessionLocal, get_db
 from ..deps import get_current_user
@@ -16,11 +17,20 @@ from ..schemas import (
     ClassificationResultOut,
     InferenceRunOut,
     InferenceTriggerRequest,
+    ModelInfo,
     SegmentationResultOut,
 )
 from .cases import UPLOAD_ROOT
 
 router = APIRouter(prefix="/api", tags=["inference"], dependencies=[Depends(get_current_user)])
+
+
+@router.get("/models", response_model=list[ModelInfo])
+def list_available_models() -> list[ModelInfo]:
+    """Same data as GET /api/admin/models, just not admin-gated — the doctor-facing
+    model-selector on the Pipeline screen needs to read checkpoint_available/metrics
+    too, and doctors aren't admins."""
+    return list_model_infos()
 
 
 def _run_out(run: InferenceRun, seg: SegmentationResult | None, clf: ClassificationResult | None) -> InferenceRunOut:

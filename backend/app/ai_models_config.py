@@ -1,9 +1,9 @@
 """Static metadata about the 8 candidate architectures (4 segmentation + 4
 classification, see CLAUDE.md's AI models section) trained on PANDA. Only the
 genuinely static fields live here (arch_key/task_type/name/task_label/encoder/
-metrics) — `checkpoint_available`/`trained_at`/`status` are computed live in
-`routers/admin.py` from whatever's actually in `backend/models/`, so this file
-never needs hand-editing again when a new checkpoint lands.
+metrics) — `checkpoint_available`/`trained_at`/`status` are computed live by
+`list_model_infos()` below from whatever's actually in `backend/models/`, so
+this file never needs hand-editing again when a new checkpoint lands.
 
 Classification metrics are the user's real evaluation results
 (classification_results.csv from their own training run, not the paper's
@@ -12,6 +12,9 @@ numbers). Segmentation metrics are the user's real results too
 DeepLabV3 (without the `+`) was trained but deliberately dropped, see
 CLAUDE.md's AI models section.
 """
+from datetime import datetime
+
+from .inference import registry as model_registry
 from .schemas import ModelInfo, ModelMetric
 
 CLF_TASK_LABEL = "Phân loại Gleason Pattern (benign / G3 / G4 / G5)"
@@ -108,3 +111,25 @@ MODELS: list[ModelInfo] = [
         metrics=_seg_metrics(0.8589129828577179, 0.5928472323087242, 0.7425448089397829, 0.25212350604706635, 0.025908641910904244, 0.9740913580890957, 0.3034452367350703),
     ),
 ]
+
+
+def list_model_infos() -> list[ModelInfo]:
+    """MODELS with live `checkpoint_available`/`trained_at`/`status` filled in
+    from whatever's actually on disk right now. Shared by both `GET
+    /api/admin/models` (admin-only) and `GET /api/models` (any authenticated
+    user — the model-selector picker on the Pipeline screen needs this too,
+    and doctors aren't admins) so the two never drift apart.
+    """
+    out = []
+    for m in MODELS:
+        available = model_registry.is_available(m.task_type, m.arch_key)
+        trained_at = None
+        if available:
+            path = model_registry.MODEL_ROOT / m.task_type / f"{m.arch_key}_best.pt"
+            trained_at = datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m-%d")
+        out.append(m.model_copy(update={
+            "checkpoint_available": available,
+            "trained_at": trained_at,
+            "status": "active" if available else "pending",
+        }))
+    return out
