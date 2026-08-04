@@ -2,5 +2,15 @@
 __pycache__/
 *.pyc
 .env
-uploads/
+
+# Uploads - ignore contents but keep folder structure
+uploads/*
+!uploads/.gitkeep
+
+# Models - ignore weight files but keep folder structure
 models/**/*.pt
+models/**/*.pth
+models/**/*.pkl
+models/**/*.h5
+models/**/*.onnx
+!models/**/.gitkeep
