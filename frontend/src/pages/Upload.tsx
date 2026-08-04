@@ -19,14 +19,14 @@ interface SlideOption { dbId: number; label: string; imageCount: number }
 interface UploadedImage { dbId: number; label: string }
 
 export function Upload({
-  token, cases, initialCaseDbId, initialSlideDbId, onReload, onRunPipeline,
+  token, cases, initialCaseDbId, initialSlideDbId, onReload, onGoPipeline,
 }: {
   token: string;
   cases: Case[];
   initialCaseDbId?: number;
   initialSlideDbId?: number;
   onReload: () => void;
-  onRunPipeline: (caseId: string) => void;
+  onGoPipeline: (imageId: number, caseId: string) => void;
 }) {
   const [selectedCaseId, setSelectedCaseId] = useState<number | ''>(initialCaseDbId ?? '');
   const [slides, setSlides] = useState<SlideOption[]>([]);
@@ -35,6 +35,7 @@ export function Upload({
   const [description, setDescription] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastImageId, setLastImageId] = useState<number | null>(null);
 
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
@@ -128,6 +129,7 @@ export function Upload({
       const img = await api.uploadImage(token, slideId, file, { description: description || undefined, source, filename: source === 'live_capture' ? 'capture.jpg' : undefined });
       setImages((prev) => [...prev, { dbId: img.id, label: `H${img.image_number}` }]);
       setSlides((prev) => prev.map((s) => (s.dbId === slideId ? { ...s, imageCount: s.imageCount + 1 } : s)));
+      setLastImageId(img.id);
       onReload();
     } catch (err) {
       setError(err instanceof api.ApiError ? err.message : 'Lưu ảnh thất bại.');
@@ -234,10 +236,14 @@ export function Upload({
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 600, color: 'var(--text-strong)' }}>Sẵn sàng phân tích</div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{images.length} / {MAX_IMAGES_PER_SLIDE} ảnh đã lưu · pipeline 7 bước (Preprocessing → Segmentation → Gleason → ISUP)</div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{images.length} / {MAX_IMAGES_PER_SLIDE} ảnh đã lưu · Segmentation → Classification → Tổng hợp Gleason</div>
         </div>
-        <Button variant="accent" iconRight={<Icon name="arrow-right" />} disabled={!currentCase || images.length === 0} onClick={() => currentCase && onRunPipeline(currentCase.id)}>
-          Chạy phân tích AI
+        <Button
+          variant="accent" iconRight={<Icon name="arrow-right" />}
+          disabled={!currentCase || !lastImageId}
+          onClick={() => currentCase && lastImageId && onGoPipeline(lastImageId, currentCase.id)}
+        >
+          Chạy phân tích AI trên ảnh vừa lưu
         </Button>
       </div>
       <div style={{ marginTop: 14 }}><Disclaimer /></div>

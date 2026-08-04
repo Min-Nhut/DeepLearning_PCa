@@ -1,42 +1,120 @@
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '../components/ui/Button';
 import { Disclaimer } from '../components/Histology';
 import { Icon } from '../lib/icon';
-import { PIPELINE } from '../data/mock';
+import * as api from '../lib/api';
+import type { ApiInferenceRun } from '../types';
 
-export function Pipeline({ pipeCaseId, step, onViewResults }: { pipeCaseId: string | null; step: number; onViewResults: () => void }) {
-  const done = step >= 7;
+const POLL_MS = 2500;
+
+// Real pipeline stages (backend/app/inference/pipeline.py's run_pipeline()) —
+// shown as a static reference list, not an animated per-step tracker: the
+// backend only reports coarse pending/running/completed/failed status, so
+// ticking these off one by one would fabricate progress that isn't real.
+const STAGES: [string, string, string][] = [
+  ['Tách patch 500×500', 'Chia ảnh gốc thành các ô mô, bỏ qua nền', 'grid-2x2'],
+  ['Segmentation', 'Phân đoạn 6 lớp mô trên từng patch', 'layers'],
+  ['Lọc patch nghi ngờ', 'Chỉ giữ patch có pixel Gleason 3/4/5', 'filter'],
+  ['Classification', 'Phân loại Gleason Pattern trên patch nghi ngờ', 'grid-2x2'],
+  ['Tổng hợp kết quả', 'Ghép mask, tính primary/secondary theo diện tích', 'calculator'],
+];
+
+export function Pipeline({ token, imageId, onDone, onBack }: {
+  token: string;
+  imageId: number;
+  onDone: () => void;
+  onBack: () => void;
+}) {
+  const [run, setRun] = useState<ApiInferenceRun | null>(null);
+  const [initError, setInitError] = useState<string | null>(null);
+  const pollTimer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+
+  function stopPolling() {
+    clearInterval(pollTimer.current);
+    pollTimer.current = undefined;
+  }
+
+  function startPolling() {
+    stopPolling();
+    pollTimer.current = setInterval(async () => {
+      try {
+        const r = await api.getInference(token, imageId);
+        if (r) setRun(r);
+        if (r && r.status !== 'pending' && r.status !== 'running') stopPolling();
+      } catch {
+        // transient network hiccup — keep polling, the next tick may succeed
+      }
+    }, POLL_MS);
+  }
+
+  async function start() {
+    setInitError(null);
+    try {
+      let r = await api.getInference(token, imageId);
+      if (!r) r = await api.triggerInference(token, imageId);
+      setRun(r);
+      if (r.status === 'pending' || r.status === 'running') startPolling();
+    } catch (err) {
+      setInitError(err instanceof api.ApiError ? err.message : 'Không thể khởi động phân tích AI.');
+    }
+  }
+
+  useEffect(() => {
+    start();
+    return stopPolling;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, imageId]);
+
+  async function retry() {
+    stopPolling();
+    setRun(null);
+    await start();
+  }
+
+  const status = run?.status;
+  const running = !run || status === 'pending' || status === 'running';
+  const failed = status === 'failed';
+  const done = status === 'completed';
+
   return (
     <div style={{ padding: 24, maxWidth: 720, margin: '0 auto' }}>
+      <div style={{ marginBottom: 8 }}>
+        <Button variant="ghost" size="sm" iconLeft={<Icon name="arrow-left" />} onClick={onBack}>Quay lại</Button>
+      </div>
       <div style={{ textAlign: 'center', marginBottom: 24 }}>
-        <div style={{ display: 'inline-flex', width: 56, height: 56, borderRadius: '50%', background: done ? 'var(--success-soft)' : 'var(--blue-50)', color: done ? 'var(--success)' : 'var(--blue-600)', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
-          {done ? <Icon name="check" size={28} /> : <span style={{ display: 'inline-flex', animation: 'pa-spin 1s linear infinite' }}><Icon name="loader-2" size={28} /></span>}
+        <div style={{
+          width: 64, height: 64, borderRadius: '50%', margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: failed ? 'var(--danger-soft)' : done ? 'var(--success-soft)' : 'var(--blue-50)',
+          color: failed ? 'var(--danger)' : done ? 'var(--success)' : 'var(--blue-600)',
+        }}>
+          {failed ? <Icon name="triangle-alert" size={28} /> : done ? <Icon name="check" size={28} /> : (
+            <span style={{ display: 'inline-flex', animation: 'pa-spin 1s linear infinite' }}><Icon name="loader-2" size={28} /></span>
+          )}
         </div>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 24, margin: '0 0 6px', color: 'var(--text-strong)' }}>{done ? 'Phân tích hoàn tất' : 'Đang chạy pipeline AI…'}</h1>
-        <p style={{ color: 'var(--text-muted)', margin: 0 }}>Ca {pipeCaseId || ''} · 7 bước xử lý</p>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 20, margin: '0 0 4px', color: 'var(--text-strong)' }}>
+          {failed ? 'Phân tích thất bại' : done ? 'Phân tích hoàn tất' : 'Đang chạy pipeline AI…'}
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
+          {initError || (failed ? run?.error_message : running ? 'Chạy trên CPU nên có thể mất một lúc — không cần tải lại trang.' : 'Segmentation → Classification → Tổng hợp Gleason')}
+        </p>
       </div>
-      <div style={{ background: 'var(--white)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: 10, boxShadow: 'var(--shadow-sm)' }}>
-        {PIPELINE.map((p, i) => {
-          const st = i < step ? 'done' : i === step ? 'run' : 'wait';
-          const col = st === 'done' ? 'var(--success)' : st === 'run' ? 'var(--blue-600)' : 'var(--gray-300)';
-          return (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 14px', borderRadius: 'var(--radius-md)', background: st === 'run' ? 'var(--blue-50)' : 'transparent' }}>
-              <div style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: st === 'wait' ? 'var(--gray-100)' : st === 'done' ? 'var(--success-soft)' : 'var(--blue-100)', color: col }}>
-                {st === 'done' ? <Icon name="check" size={17} /> : st === 'run' ? <span style={{ display: 'inline-flex', animation: 'pa-spin 1s linear infinite' }}><Icon name="loader-2" size={17} /></span> : <Icon name={p[2]} size={16} />}
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: 14, color: st === 'wait' ? 'var(--text-muted)' : 'var(--text-strong)' }}>{i + 1}. {p[0]}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{p[1]}</div>
-              </div>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: col }}>{st === 'done' ? '✓' : st === 'run' ? '…' : ''}</span>
+      <div style={{ background: 'var(--white)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: 8 }}>
+        {STAGES.map(([name, desc, icon]) => (
+          <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', opacity: done ? 1 : failed ? 0.5 : 0.85 }}>
+            <div style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: done ? 'var(--success-soft)' : 'var(--gray-100)', color: done ? 'var(--success)' : 'var(--text-muted)' }}>
+              <Icon name={done ? 'check' : icon} size={15} />
             </div>
-          );
-        })}
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-strong)' }}>{name}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{desc}</div>
+            </div>
+          </div>
+        ))}
       </div>
-      {done && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 20, animation: 'pa-fade .3s ease-out' }}>
-          <Button variant="accent" iconRight={<Icon name="arrow-right" />} onClick={onViewResults}>Xem kết quả overlay</Button>
-        </div>
-      )}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 20 }}>
+        {done && <Button variant="accent" iconRight={<Icon name="arrow-right" />} onClick={onDone}>Xem kết quả</Button>}
+        {failed && <Button variant="accent" iconLeft={<Icon name="refresh-cw" />} onClick={retry}>Thử lại</Button>}
+      </div>
       <div style={{ marginTop: 18 }}><Disclaimer compact /></div>
     </div>
   );

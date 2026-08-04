@@ -2,9 +2,13 @@ import type {
   AdminStats,
   ApiAnnotation,
   ApiCase,
+  ApiDiagnosticReview,
   ApiImage,
+  ApiInferenceRun,
   ApiSlide,
   ApiUser,
+  DiagnosticReviewUpdate,
+  InferenceTriggerRequest,
   LogEntryApi,
   MeResponse,
   MigrationImportResult,
@@ -206,4 +210,61 @@ export async function getImageBlobUrl(
   if (!res.ok) throw new ApiError(res.status, res.statusText);
   const blob = await res.blob();
   return URL.createObjectURL(blob);
+}
+
+// ---------- AI inference ----------
+export function triggerInference(
+  token: string,
+  imageId: number,
+  payload: InferenceTriggerRequest = {},
+): Promise<ApiInferenceRun> {
+  return apiFetch(`/api/images/${imageId}/inference`, { method: 'POST', body: JSON.stringify(payload) }, token);
+}
+
+// A 404 here just means "no run yet" — resolve to null instead of throwing so
+// callers (useApiData) treat it as normal data, not an error banner.
+export async function getInference(token: string, imageId: number): Promise<ApiInferenceRun | null> {
+  try {
+    return await apiFetch<ApiInferenceRun>(`/api/images/${imageId}/inference`, {}, token);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  }
+}
+
+async function getBlobUrl(token: string, path: string): Promise<string> {
+  const res = await fetch(`${API_BASE}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new ApiError(res.status, res.statusText);
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
+}
+
+export function getMaskBlobUrl(token: string, runId: number): Promise<string> {
+  return getBlobUrl(token, `/api/inference-runs/${runId}/mask`);
+}
+
+export function getHeatmapBlobUrl(token: string, runId: number): Promise<string> {
+  return getBlobUrl(token, `/api/inference-runs/${runId}/heatmap`);
+}
+
+// ---------- diagnostic review ----------
+export async function getReview(token: string, imageId: number): Promise<ApiDiagnosticReview | null> {
+  try {
+    return await apiFetch<ApiDiagnosticReview>(`/api/images/${imageId}/review`, {}, token);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  }
+}
+
+export function updateReview(
+  token: string,
+  imageId: number,
+  payload: DiagnosticReviewUpdate,
+): Promise<ApiDiagnosticReview> {
+  return apiFetch(`/api/images/${imageId}/review`, { method: 'PATCH', body: JSON.stringify(payload) }, token);
+}
+
+export function confirmReview(token: string, imageId: number): Promise<ApiDiagnosticReview> {
+  return apiFetch(`/api/images/${imageId}/review/confirm`, { method: 'POST' }, token);
 }

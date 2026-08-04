@@ -9,9 +9,10 @@ in scope).
 ## Current status
 
 - ✅ **Frontend** (`frontend/`): fully scaffolded, ported screen-for-screen from a Claude
-  Design mockup (see [Design source](#design-source) below). **Admin screens and
-  Cases/CaseDetail/CaseForm/Upload are wired to the real backend** (see below);
-  **Pipeline/Viewer/Report still run on mock AI data** since there's no AI pipeline yet.
+  Design mockup (see [Design source](#design-source) below). **Admin screens,
+  Cases/CaseDetail/CaseForm/Upload, and — as of 2026-08-04 — Pipeline/Viewer/Report are all
+  wired to the real backend** (see below). All mock diagnostic data (`REGIONS`, the fake
+  7-step `PIPELINE` timer, the generated fake-tissue `Histology` renderer) has been removed.
 - ✅ **Database** (`database/`): SQLite database initialized from `docs/schema.sql`, all
   11 tables + indexes + CHECK/FK constraints verified. `users` has 4 real accounts (1
   admin, 3 doctor); `cases`/`slides`/`images` are real and populated through normal use of
@@ -36,12 +37,13 @@ in scope).
   stayed `null`, not a fabricated pattern) — the "no result" path works as honestly as
   the "found a pattern" path would. See
   [AI inference pipeline](#ai-inference-pipeline-backendappinference) below.
-  `Pipeline.tsx`/`Viewer.tsx` are **not wired yet** — still mock, see roadmap.
+  **`Pipeline.tsx`/`Viewer.tsx`/`Report.tsx` are now wired to this pipeline**
+  (2026-08-04) — see [Frontend↔backend integration](#frontendbackend-integration).
 - ✅ **Frontend ↔ backend wiring**: Admin (all 6 screens), Cases/CaseDetail/CaseForm/
-  Upload, and Annotate verified end-to-end through the actual UI (not just curl) — see
-  [Frontend↔backend integration](#frontendbackend-integration). `Pipeline`/`Viewer`/
-  `Report` still render off mock Gleason/region data regardless of whether the case
-  itself is real or mock — wiring these to the new inference endpoints is next.
+  Upload, Annotate, and — as of 2026-08-04 — Pipeline/Viewer/Report all verified
+  end-to-end through the actual UI (not just curl) — see
+  [Frontend↔backend integration](#frontendbackend-integration). There is no longer any
+  screen rendering off mock/fabricated AI data.
 
 ## Data model
 
@@ -305,8 +307,9 @@ frontend/src/
   index.css               Google Fonts @import (must stay first) + Tailwind + tokens.css
   types.ts                Case/Slide/Image/Region/Nav/Role mock types + API types (ApiUser,
                            AdminStats, LogEntryApi, ModelInfoApi, MigrationPreview/Result, MeResponse)
-  data/mock.ts             Static CASES/REGIONS/PIPELINE + grade() (ISUP calc) — doctor screens only
-                           now; the old USERS/LOG/MODELS mock data was removed once Admin went live
+  data/mock.ts             Just grade() (ISUP calc, mirrors backend's _grade_group()) — every
+                           other mock export (CASES/USERS/LOG/MODELS/REGIONS/PIPELINE) has been
+                           removed now that every screen calls the real backend
   lib/icon.tsx             kebab-case -> lucide-react component resolver
   lib/nav.ts               Sidebar nav items per role, nav->title map, nav->parent-sidebar-item map
   lib/api.ts               fetch wrapper (ApiError, apiFetch) + typed calls to every backend
@@ -320,7 +323,9 @@ frontend/src/
   components/ui/           Button, IconButton, Input, Select, Badge, Tag, Card, StatCard, Checkbox,
                            Switch, StateMessage (loading/error placeholder)
   components/pathology/    GleasonChip, ConfidenceMeter, CaseRow, AIOverlayToggle
-  components/Histology.tsx Generated placeholder "H&E tissue" background + clickable AI regions; Disclaimer
+  components/Histology.tsx Just Disclaimer now — the generated placeholder "H&E tissue"
+                            background + clickable AI region renderer was removed once Viewer
+                            started rendering the real slide image + real mask/heatmap PNGs
   components/ImageThumb.tsx Real uploaded-image thumbnail: fetches /api/images/{id}/file as
                             an authed blob (an <img src> can't carry a bearer token) ->
                             object URL; used by CaseDetail and Upload's image grid
@@ -332,22 +337,30 @@ frontend/src/
 ### Screens (`pages/`)
 
 Doctor, **real backend**: `Cases` (list/search/filter), `CaseDetail` (slides/images, add
-slide, real thumbnails), `CaseForm` (create/edit). `Upload` — case/slide picker + real
-file upload (JPG/PNG/TIFF) **and live microscope-camera capture** (`getUserMedia` +
-canvas frame grab), both hitting the same image-upload endpoint with different `source`.
-`Annotate` — freehand polygon marking directly on a real image, independent of any AI
-pipeline (see **Manual annotation** in [Backend architecture](#backend-architecture));
-reached via `CaseDetail`'s per-image "Đánh dấu" button.
-Doctor, **still mock**: `DoctorDashboard` (stat tiles are static; the case list itself is
-real via the shared `cases` prop), `Pipeline` (7-step animated status — no real inference
-call), `Viewer` (layer toggle, region click, side-by-side, zoom, manual PNI/LVI + notes,
-lock), `Report` (printable result sheet) — all three render off `case.gleason/primary/
-secondary/...`, which are always `null` for real cases (no AI ran), so they show
-"Lành tính"/empty state for any case created through the real flow. This is a known,
-pre-existing rough edge (the mockup's Pipeline was always a fake timer, never wrote AI
-fields even for its own mock cases) inherited as-is — fixing it means building the real
-AI pipeline, not patching these three pages. `CaseDetail` avoids the same trap: it shows
-a neutral "Chưa có kết quả AI" badge instead of defaulting to a fake Pattern-3 chip.
+slide, real thumbnails, per-image "Đánh dấu"/"Kết quả AI" buttons), `CaseForm`
+(create/edit). `Upload` — case/slide picker + real file upload (JPG/PNG/TIFF) **and live
+microscope-camera capture** (`getUserMedia` + canvas frame grab), both hitting the same
+image-upload endpoint with different `source`. `Annotate` — freehand polygon marking
+directly on a real image, independent of any AI pipeline (see **Manual annotation** in
+[Backend architecture](#backend-architecture)); reached via `CaseDetail`'s per-image
+"Đánh dấu" button. **`Pipeline`/`Viewer`/`Report`** (real backend as of 2026-08-04) —
+**image-scoped, not case-scoped** (`{token, imageId}`, same pattern as `Annotate`): `Pipeline`
+triggers/polls `POST`+`GET /api/images/{id}/inference` and shows honest coarse status
+(pending/running/completed/failed — no fake per-step animation, since the backend has no
+granular progress signal); `Viewer` renders the real slide image with the real stitched
+segmentation-mask/heatmap PNGs as togglable overlays (`AIOverlayToggle`, reused unchanged),
+shows the AI's read-only primary/secondary/confidence/cancer-area, and a doctor-editable
+review form (primary/secondary override, PNI/LVI, biopsy location, free notes) wired to
+`PATCH`/`POST .../confirm`; `Report` renders the real confirmed review, with no fabricated
+doctor signature (drops the mockup's hardcoded `"BS. Nguyễn Lâm"` — `reviewed_by` is a user
+id with no name-lookup available to a doctor role, so the status/confirmed-at timestamp is
+shown instead) and a working "In" (`window.print()`). See
+[Frontend↔backend integration](#frontendbackend-integration) for the nav/data-flow details.
+`DoctorDashboard`'s stat tiles are still static (the case list itself is real via the
+shared `cases` prop) — no AI-result aggregation exists there. `CaseDetail`'s case-level
+Gleason header still shows a neutral "Chưa có kết quả AI" badge rather than any per-case
+aggregate — AI results stay strictly **per-image**, there is no case-level rollup anywhere
+in the schema (a case can have many images, each with its own independent inference run).
 Admin (**real backend**): `AdminDashboard`, `Log`, `Models`, `Users`, `Migration`
 (real 4-step legacy-data-import wizard), `Library` (real dataset export/download).
 Plus `Login` (real JWT auth).
@@ -705,8 +718,9 @@ test image → classification never ran → `primary_pattern`/`secondary_pattern
 tile→segment→classify→aggregate chain is wired correctly, not just each piece verified
 in isolation.
 
-**Explicitly out of scope for this pass**: `Pipeline.tsx`/`Viewer.tsx` frontend wiring —
-verification was curl-only. See Next steps for the wiring order.
+**Frontend wiring, done 2026-08-04**: `Pipeline.tsx`/`Viewer.tsx`/`Report.tsx` now call
+these endpoints for real — see [Frontend↔backend integration](#frontendbackend-integration)
+for the nav restructuring and UI details.
 
 ### Running the backend
 
@@ -804,6 +818,74 @@ the nav item is not real access control — the backend enforces it either way).
   cập camera." + a hint that file upload still works), no crash, no console errors. The
   actual live-video-frame-capture path needs verification on real hardware.
 
+### Pipeline/Viewer/Report (2026-08-04)
+
+Wired to the real inference (`inference.py`) and review (`reviews.py`) endpoints, replacing
+every piece of mock diagnostic data (`REGIONS`, the fake 7-step `PIPELINE` timer, the
+generated fake-tissue `Histology` background) — see [AI inference
+pipeline](#ai-inference-pipeline-backendappinference) for the endpoint contracts.
+
+- **Navigation is now image-scoped, not case-scoped**: since inference/review operate on
+  one `image_id` at a time and there's no per-region/bbox data anywhere in the schema
+  (`segmentation_results`/`classification_results` are one row per run — an aggregate
+  primary/secondary pattern + one stitched mask PNG, nothing finer-grained), `Pipeline`/
+  `Viewer`/`Report` take `{token, imageId}` exactly like `Annotate` already did, not
+  `{case}`. `App.tsx` holds one `aiImageId` state shared by all three, set via
+  `goPipeline(imageId, caseId?)`/`goViewer(imageId)`.
+- **Case-row click now opens `CaseDetail`, not `Viewer`** (`openCase` in `App.tsx`) — this
+  was also the fix for a previously-documented gap ("no way back to `CaseDetail` once you
+  navigate away"). `CaseDetail`'s per-image tile has two buttons now: "Đánh dấu" (annotate,
+  unchanged) and "Kết quả AI" (→ `Viewer` for that image). The case-level "Chạy phân tích
+  AI" header button was removed — a case can have 0..N images across N slides, so a
+  case-level trigger was always ambiguous about which image it meant.
+- **`Pipeline`**: on mount, `GET`s the latest run for the image; if none exists, `POST`s one
+  (default model selection — no selector UI yet, see Next steps); polls every ~2.5s while
+  `pending`/`running`. Renders 3 honest states (running/completed/failed) with a *static*
+  reference list of the real pipeline stages — deliberately not an animated per-step
+  tracker, since the backend only reports coarse status, and ticking off fake steps would
+  fabricate progress that isn't real.
+- **`Viewer`**: real slide image (`getImageBlobUrl(..., 'view')`, same auth-gated-blob
+  pattern as `Annotate`) with the real mask/heatmap PNGs (`getMaskBlobUrl`/
+  `getHeatmapBlobUrl`) layered on top via `AIOverlayToggle` (reused unchanged, just fed
+  `none`/`mask`/`heatmap` instead of the old `seg`/`gleason`/`heat`/`none`). Shows an
+  explicit "Chưa có kết quả AI cho ảnh này" CTA (not an error banner) when
+  `GET /api/images/{id}/inference` 404s — `api.getInference`/`api.getReview` both catch a
+  404 and resolve `null` rather than throwing, specifically so `useApiData` treats "nothing
+  yet" as normal data. The doctor-review form (primary/secondary override, PNI/LVI +
+  notes, biopsy location, free notes) **prefills from the AI's own classification when no
+  review draft exists yet, but does not auto-save** — nothing is written to
+  `diagnostic_reviews` until the doctor explicitly clicks "Lưu" (matches `Annotate`'s
+  explicit-save convention; avoids creating a DB row from a page view). "Xác nhận & khóa"
+  is disabled until a draft exists. A `423` from `PATCH` (already confirmed, e.g. in
+  another tab) reloads the review instead of surfacing a raw error.
+- **Known gap, not fixed this pass**: `DiagnosticReviewUpdate` has no
+  `cancer_area_percentage` field (confirmed in `reviews.py` — it was always meant to come
+  from the AI segmentation output, never hand-set), and no code anywhere copies
+  `segmentation_results.cancer_area_percentage` into the review row when it's created. So
+  `Viewer`'s read-only AI panel shows the real number (straight from
+  `GET .../inference`'s `segmentation.cancer_area_percentage`), but `Report` — which reads
+  from the *review* row — shows "Chưa có diện tích ung thư" even for a confirmed review of
+  a completed run. Not a frontend bug, just an honest reflection of a real backend gap;
+  fixing it means either adding that field to `DiagnosticReviewUpdate`+the PATCH handler,
+  or having `Report` also fetch the inference run the way `Viewer` already does.
+- **Verified through the actual browser UI** (not just curl, doctor account
+  `lam.nguyen@benhvien.vn`): created a disposable test case + real uploaded image (curl,
+  since this sandbox can't drive a native file-picker dialog) → `CaseDetail` → "Kết quả AI"
+  on an image with no run yet → `Viewer` showed the CTA correctly → "Chạy phân tích AI" →
+  `Pipeline` → real `POST` created an `InferenceRun`, polling picked up a real `completed`
+  status within seconds → "Xem kết quả" → `Viewer` showed the real image, a working
+  mask-overlay toggle (`GET /api/inference-runs/{id}/mask` → `200`), and correctly rendered
+  a `primary_pattern: null` AI result as "Benign" rather than crashing or fabricating a
+  pattern (the synthetic test image's segmentation found 37.7% "cancer" area but
+  classification found no patch confident enough to assign a pattern — a real, honest
+  disagreement between the two models on out-of-domain input, not a bug) → edited PNI +
+  notes → "Lưu" (confirmed persisted via a direct DB read) → "Xác nhận & khóa" → form
+  disabled, badge flipped to "Đã khóa" → "Xem báo cáo" → `Report` showed the real confirmed
+  data with no fabricated signature. Test case, image, uploaded files, and all cascaded
+  `inference_runs`/`segmentation_results`/`classification_results`/`diagnostic_reviews`
+  rows were deleted afterward; the user's real case (`0001`) was confirmed untouched
+  throughout.
+
 ## Design source
 
 The UI was ported from a Claude Design project (id
@@ -851,17 +933,20 @@ Roughly in the order they unblock each other:
 1. ~~Drop real `.pt` checkpoints~~ — **done (2026-08-04)**: 4 classification + 3
    segmentation checkpoints in `backend/models/`, first full pipeline run verified
    `completed` end-to-end (see [AI inference pipeline](#ai-inference-pipeline-backendappinference)).
-2. **Wire `Pipeline.tsx`/`Viewer.tsx` to the real endpoints** (`GET /api/images/{id}
-   /inference` for status polling, replacing the fake `setInterval` timer;
-   `GET /api/inference-runs/{id}/mask`/`.../heatmap` for real overlay images, replacing
-   the `REGIONS` mock) — `reviews.py` for Viewer's manual PNI/LVI fields is already usable
-   today, just not pointed at by the frontend yet. Same `lib/api.ts` + `useApiData`
-   pattern already used everywhere else. **Now the top-priority item** — both models are
-   real, so this is what actually makes the pipeline visible/demoable in the UI.
+2. ~~Wire `Pipeline.tsx`/`Viewer.tsx` to the real endpoints~~ — **done (2026-08-04)**,
+   `Report.tsx` too. See [Frontend↔backend integration](#frontendbackend-integration)'s
+   Pipeline/Viewer/Report subsection for the nav restructuring (image-scoped, not
+   case-scoped) and full verification. Known small gap left from this pass: `Report`
+   shows "Chưa có diện tích ung thư" even for a confirmed review, because
+   `cancer_area_percentage` is never copied from `segmentation_results` into
+   `diagnostic_reviews` — `Viewer` shows the real number since it reads the inference run
+   directly.
 3. **Model-selector UI** (Upload or Pipeline screen) — now genuinely useful: 4
    classification architectures and 3 segmentation architectures all have real
    checkpoints and all default to "first available" today. Reads `GET /api/admin/models`'s
-   `checkpoint_available`, lets the doctor pick an architecture per run.
+   `checkpoint_available`, lets the doctor pick an architecture per run. **Now the
+   top-priority item** — the pipeline is fully demoable end-to-end, this is the next
+   genuinely missing piece rather than a nice-to-have.
 4. Pull the real µm/pixel value from a sample PANDA WSI file's metadata (`openslide.mpp-x`/
    `mpp-y` or equivalent), add the "độ phóng đại" field to Upload/live-capture (PRD §8.4)
    so 4x/10x microscope captures can be rescaled to match the 40x≈Level-0 training scale
@@ -882,6 +967,7 @@ Roughly in the order they unblock each other:
    anonymization is already enforced there and must stay a hard requirement).
 10. Decide whether to introduce `react-router` once real navigation (deep links, browser
     back/forward) is needed — not required for the current single-session demo.
-11. Report export (PRD §8.8) — explicitly declined by the user for now; revisit if the
-    thesis write-up ends up needing a generated artifact rather than screenshots of the
-    (still-mock) `Report.tsx` screen.
+11. Report export (PRD §8.8) — explicitly declined by the user for now; `Report.tsx` now
+    renders real confirmed review data (2026-08-04) and has a working "In" (browser print);
+    a generated PDF/HTML artifact is still not built, revisit only if the thesis write-up
+    needs one rather than screenshots/browser-print of the real screen.

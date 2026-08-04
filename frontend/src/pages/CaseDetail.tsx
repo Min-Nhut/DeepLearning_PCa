@@ -11,12 +11,12 @@ import type { Case } from '../types';
 
 const MAX_SLIDES = 12;
 
-export function CaseDetail({ case: c, token, onBack, onEdit, onRunPipeline, onGoUpload, onAnnotate, onReload }: {
+export function CaseDetail({ case: c, token, onBack, onEdit, onGoResult, onGoUpload, onAnnotate, onReload }: {
   case: Case;
   token: string;
   onBack: () => void;
   onEdit: (c: Case) => void;
-  onRunPipeline: (caseId: string) => void;
+  onGoResult: (imageDbId: number) => void;
   onGoUpload: (slideDbId?: number) => void;
   onAnnotate: (imageDbId: number) => void;
   onReload: () => void;
@@ -44,7 +44,6 @@ export function CaseDetail({ case: c, token, onBack, onEdit, onRunPipeline, onGo
         <Button variant="ghost" size="sm" iconLeft={<Icon name="arrow-left" />} onClick={onBack}>Danh sách ca</Button>
         <div style={{ display: 'flex', gap: 8 }}>
           <Button variant="secondary" size="sm" iconLeft={<Icon name="pencil" />} onClick={() => onEdit(c)}>Sửa ca</Button>
-          <Button variant="accent" size="sm" iconLeft={<Icon name="sparkles" />} onClick={() => onRunPipeline(c.id)}>Chạy phân tích AI</Button>
         </div>
       </div>
       <Card padding="none">
@@ -111,9 +110,14 @@ export function CaseDetail({ case: c, token, onBack, onEdit, onRunPipeline, onGo
                   <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-strong)', marginTop: 6 }}>{im.id}</div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{im.desc || '—'}</div>
                   {im.dbId && (
-                    <Button variant="ghost" size="sm" iconLeft={<Icon name="pencil" />} onClick={() => onAnnotate(im.dbId!)} style={{ marginTop: 4, width: '100%' }}>
-                      Đánh dấu
-                    </Button>
+                    <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+                      <Button variant="ghost" size="sm" iconLeft={<Icon name="pencil" />} onClick={() => onAnnotate(im.dbId!)} style={{ flex: 1 }}>
+                        Đánh dấu
+                      </Button>
+                      <Button variant="ghost" size="sm" iconLeft={<Icon name="sparkles" />} onClick={() => onGoResult(im.dbId!)} style={{ flex: 1 }}>
+                        Kết quả AI
+                      </Button>
+                    </div>
                   )}
                 </div>
               ))}
