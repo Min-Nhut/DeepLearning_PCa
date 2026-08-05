@@ -120,6 +120,11 @@ export function CaseDetail({ case: c, token, onBack, onEdit, onGoResult, onGoUpl
                 <div key={im.id} style={{ width: 150 }}>
                   <div style={{ height: 100, position: 'relative' }}>
                     {im.dbId ? <ImageThumb imageId={im.dbId} token={token} /> : null}
+                    {im.magnification && (
+                      <span style={{ position: 'absolute', bottom: 4, left: 4, background: 'rgba(0,0,0,.6)', color: '#fff', fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 999 }}>
+                        {im.magnification}
+                      </span>
+                    )}
                     {im.dbId && (
                       <IconButton
                         label="Xóa ảnh"

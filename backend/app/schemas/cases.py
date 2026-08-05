@@ -1,4 +1,8 @@
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict
+
+Magnification = Literal["4x", "10x", "20x", "40x"]
 
 
 class ImageOut(BaseModel):
@@ -12,6 +16,7 @@ class ImageOut(BaseModel):
     height_px: int | None
     format: str | None
     source: str
+    magnification: Magnification | None
     created_at: str
 
 
@@ -21,6 +26,7 @@ class SlideOut(BaseModel):
     id: int
     case_id: int
     slide_number: int
+    legacy_slide_label: str | None
     images: list[ImageOut] = []
 
 

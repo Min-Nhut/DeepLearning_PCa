@@ -15,6 +15,8 @@ import type {
   MigrationPreview,
   ModelInfoApi,
   Point,
+  SqliteMigrationImportResult,
+  SqliteMigrationPreview,
 } from '../types';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) || 'http://localhost:8000';
@@ -138,6 +140,25 @@ export function migrationImport(token: string, file: File, anonymize: boolean): 
   return apiFetch(`/api/admin/migration/import?anonymize=${anonymize}`, { method: 'POST', body: form }, token);
 }
 
+export function migrationSqlitePreview(token: string, dbFile: File): Promise<SqliteMigrationPreview> {
+  const form = new FormData();
+  form.append('db_file', dbFile);
+  return apiFetch('/api/admin/migration/sqlite-preview', { method: 'POST', body: form }, token);
+}
+
+export function migrationSqliteImport(
+  token: string,
+  dbFile: File,
+  imageFiles: File[],
+  anonymize: boolean,
+): Promise<SqliteMigrationImportResult> {
+  const form = new FormData();
+  form.append('db_file', dbFile);
+  imageFiles.forEach((f) => form.append('image_files', f));
+  form.append('anonymize', String(anonymize));
+  return apiFetch('/api/admin/migration/sqlite-import', { method: 'POST', body: form }, token);
+}
+
 // ---------- cases / slides / images ----------
 export function getCases(token: string, q?: string): Promise<ApiCase[]> {
   return apiFetch(`/api/cases${q ? `?q=${encodeURIComponent(q)}` : ''}`, {}, token);
@@ -170,12 +191,18 @@ export function uploadImage(
   token: string,
   slideId: number,
   file: File | Blob,
-  opts: { description?: string; source?: 'upload' | 'live_capture'; filename?: string } = {},
+  opts: {
+    description?: string;
+    source?: 'upload' | 'live_capture';
+    filename?: string;
+    magnification?: '4x' | '10x' | '20x' | '40x';
+  } = {},
 ): Promise<ApiImage> {
   const form = new FormData();
   form.append('file', file, opts.filename ?? (file instanceof File ? file.name : 'capture.jpg'));
   if (opts.description) form.append('description', opts.description);
   form.append('source', opts.source ?? 'upload');
+  if (opts.magnification) form.append('magnification', opts.magnification);
   return apiFetch(`/api/cases/slides/${slideId}/images`, { method: 'POST', body: form }, token);
 }
 

@@ -1,10 +1,16 @@
+import contextlib
 import csv
 import io
 import json
+import sqlite3
+import tempfile
 import unicodedata
+import uuid
 from datetime import datetime
+from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
@@ -21,11 +27,15 @@ from ..schemas import (
     MigrationImportResult,
     MigrationPreview,
     ModelInfo,
+    SqliteCasePreview,
+    SqliteMigrationImportResult,
+    SqliteMigrationPreview,
     UserCreate,
     UserOut,
     UserUpdate,
 )
 from ..security import hash_password
+from .cases import MAX_IMAGES_PER_SLIDE, MAX_SLIDES_PER_CASE, UPLOAD_ROOT, _process_and_store, _read_capped
 
 router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
@@ -351,3 +361,191 @@ async def migration_import(
     db.commit()
 
     return MigrationImportResult(imported=imported, skipped=skipped, skipped_reasons=skipped_reasons)
+
+
+# ---------------------------------------- migration — legacy SQLite connector ----
+_LEGACY_TABLES = {"CaBenh", "Slide", "SlideDoPhongDai", "HinhAnh"}
+
+
+@contextlib.contextmanager
+def _open_legacy_sqlite(raw: bytes):
+    """The real desktop app ("ImageCapture", D:\\LV\\Debug — WinForms + EF6) stores its
+    data as plain SQLite. sqlite3 needs a real file path (not in-memory bytes), so the
+    upload is written to a temp file, opened read-only, and always cleaned up here —
+    both on success and on the "wrong file" rejection below."""
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
+        tmp.write(raw)
+        tmp_path = Path(tmp.name)
+    conn: sqlite3.Connection | None = None
+    try:
+        conn = sqlite3.connect(f"file:{tmp_path}?mode=ro", uri=True)
+        conn.row_factory = sqlite3.Row
+        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if not _LEGACY_TABLES.issubset(tables):
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "File không đúng định dạng database ImageCapture "
+                "(thiếu bảng CaBenh/Slide/SlideDoPhongDai/HinhAnh).",
+            )
+        yield conn
+    finally:
+        if conn is not None:
+            conn.close()
+        tmp_path.unlink(missing_ok=True)
+
+
+@router.post("/migration/sqlite-preview", response_model=SqliteMigrationPreview)
+async def migration_sqlite_preview(db_file: UploadFile) -> SqliteMigrationPreview:
+    raw = await db_file.read()
+    with _open_legacy_sqlite(raw) as legacy:
+        case_count = legacy.execute("SELECT COUNT(*) FROM CaBenh").fetchone()[0]
+        slide_count = legacy.execute("SELECT COUNT(*) FROM Slide").fetchone()[0]
+        image_count = legacy.execute("SELECT COUNT(*) FROM HinhAnh").fetchone()[0]
+        magnifications = [
+            r[0] for r in legacy.execute("SELECT DISTINCT DoPhongDai FROM SlideDoPhongDai ORDER BY DoPhongDai")
+        ]
+        cases: list[SqliteCasePreview] = []
+        for row in legacy.execute("SELECT Id, MaSo, MaNam, HoTen FROM CaBenh ORDER BY Id"):
+            sc = legacy.execute("SELECT COUNT(*) FROM Slide WHERE CaBenhId = ?", (row["Id"],)).fetchone()[0]
+            ic = legacy.execute(
+                "SELECT COUNT(*) FROM HinhAnh h "
+                "JOIN SlideDoPhongDai sd ON h.SlideDoPhongDaiId = sd.Id "
+                "JOIN Slide s ON sd.SlideId = s.Id WHERE s.CaBenhId = ?",
+                (row["Id"],),
+            ).fetchone()[0]
+            cases.append(SqliteCasePreview(
+                case_code=row["MaSo"], case_year=row["MaNam"], patient_name=row["HoTen"],
+                slide_count=sc, image_count=ic,
+            ))
+    return SqliteMigrationPreview(
+        case_count=case_count, slide_count=slide_count, image_count=image_count,
+        magnifications_found=magnifications, cases=cases,
+    )
+
+
+@router.post("/migration/sqlite-import", response_model=SqliteMigrationImportResult)
+async def migration_sqlite_import(
+    db_file: UploadFile,
+    image_files: list[UploadFile] = File(default_factory=list),
+    anonymize: bool = Form(True),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+) -> SqliteMigrationImportResult:
+    raw = await db_file.read()
+    # Match legacy HinhAnh.DuongDan is an absolute path from the *original* machine and
+    # is never valid here — the actual bytes have to be re-uploaded alongside the .db,
+    # matched back to their HinhAnh row by filename (TenFile) instead.
+    file_bytes_by_name: dict[str | None, bytes] = {}
+    for f in image_files:
+        file_bytes_by_name[f.filename] = await _read_capped(f)
+
+    cases_imported = 0
+    cases_skipped = 0
+    slides_imported = 0
+    images_imported = 0
+    images_skipped = 0
+    skipped_reasons: list[str] = []
+
+    with _open_legacy_sqlite(raw) as legacy:
+        for case_row in legacy.execute("SELECT * FROM CaBenh ORDER BY Id"):
+            case = Case(
+                case_code=case_row["MaSo"],
+                case_year=case_row["MaNam"],
+                patient_name=None if anonymize else case_row["HoTen"],
+                patient_age=case_row["Tuoi"],
+                conclusion=case_row["KetLuan"],
+                is_anonymized=1 if anonymize else 0,
+                source="legacy_import",
+                legacy_case_id=str(case_row["Id"]),
+                created_by=admin.id,
+            )
+            # Same nested-SAVEPOINT isolation as the CSV importer above — one duplicate
+            # case_code+case_year must not roll back cases already imported this batch.
+            try:
+                with db.begin_nested():
+                    db.add(case)
+                    db.flush()
+            except IntegrityError:
+                cases_skipped += 1
+                skipped_reasons.append(f"Ca '{case_row['MaSo']}': mã ca đã tồn tại (trùng case_code+case_year)")
+                continue
+            cases_imported += 1
+
+            slide_rows = legacy.execute(
+                "SELECT * FROM Slide WHERE CaBenhId = ? ORDER BY Id", (case_row["Id"],)
+            ).fetchall()
+            if len(slide_rows) > MAX_SLIDES_PER_CASE:
+                skipped_reasons.append(
+                    f"Ca '{case_row['MaSo']}': vượt quá {MAX_SLIDES_PER_CASE} slide/ca, "
+                    f"bỏ qua {len(slide_rows) - MAX_SLIDES_PER_CASE} slide cuối"
+                )
+            for slide_number, slide_row in enumerate(slide_rows[:MAX_SLIDES_PER_CASE], start=1):
+                slide = Slide(case_id=case.id, slide_number=slide_number, legacy_slide_label=slide_row["TenSlide"])
+                db.add(slide)
+                db.flush()
+                slides_imported += 1
+
+                image_rows = legacy.execute(
+                    "SELECT h.*, sd.DoPhongDai AS DoPhongDai FROM HinhAnh h "
+                    "JOIN SlideDoPhongDai sd ON h.SlideDoPhongDaiId = sd.Id "
+                    "WHERE sd.SlideId = ? ORDER BY h.Id",
+                    (slide_row["Id"],),
+                ).fetchall()
+                image_number = 0
+                for image_row in image_rows[:MAX_IMAGES_PER_SLIDE]:
+                    file_bytes = file_bytes_by_name.get(image_row["TenFile"])
+                    if file_bytes is None:
+                        images_skipped += 1
+                        skipped_reasons.append(
+                            f"Ca '{case_row['MaSo']}' / slide '{slide.legacy_slide_label}': "
+                            f"không tìm thấy file '{image_row['TenFile']}' trong các file ảnh đã tải lên"
+                        )
+                        continue
+                    dest_dir = UPLOAD_ROOT / f"case_{case.id}" / f"slide_{slide.id}"
+                    stem = uuid.uuid4().hex
+                    try:
+                        ext, width, height = await run_in_threadpool(_process_and_store, file_bytes, dest_dir, stem)
+                    except ValueError:
+                        images_skipped += 1
+                        skipped_reasons.append(f"File '{image_row['TenFile']}': không phải ảnh hợp lệ")
+                        continue
+                    magnification = (image_row["DoPhongDai"] or "").lower() or None
+                    if magnification not in ("4x", "10x", "20x", "40x"):
+                        magnification = None
+                    image_number += 1
+                    image = Image(
+                        slide_id=slide.id,
+                        image_number=image_number,
+                        file_path=str((dest_dir / f"{stem}.{ext}").relative_to(UPLOAD_ROOT.parent)),
+                        description=image_row["MoTa"],
+                        width_px=width,
+                        height_px=height,
+                        format=ext,
+                        uploaded_by=admin.id,
+                        source="legacy_import",
+                        legacy_image_id=str(image_row["Id"]),
+                        magnification=magnification,
+                    )
+                    db.add(image)
+                    db.flush()
+                    images_imported += 1
+                if len(image_rows) > MAX_IMAGES_PER_SLIDE:
+                    skipped_reasons.append(
+                        f"Slide '{slide.legacy_slide_label}': vượt quá {MAX_IMAGES_PER_SLIDE} ảnh/slide, "
+                        f"bỏ qua {len(image_rows) - MAX_IMAGES_PER_SLIDE} ảnh cuối"
+                    )
+
+    write_audit_log(
+        db, admin, "migrate_data", "case", None,
+        details=(
+            f"Imported {cases_imported} case(s) from legacy ImageCapture SQLite "
+            f"({slides_imported} slides, {images_imported} images), "
+            f"skipped {cases_skipped} case(s) / {images_skipped} image(s)"
+        ),
+    )
+    db.commit()
+
+    return SqliteMigrationImportResult(
+        cases_imported=cases_imported, cases_skipped=cases_skipped, slides_imported=slides_imported,
+        images_imported=images_imported, images_skipped=images_skipped, skipped_reasons=skipped_reasons,
+    )

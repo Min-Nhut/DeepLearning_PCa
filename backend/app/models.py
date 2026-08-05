@@ -86,6 +86,7 @@ class Image(Base):
     uploaded_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     source: Mapped[str] = mapped_column(Text, nullable=False, server_default="upload")
     legacy_image_id: Mapped[str | None] = mapped_column(Text)
+    magnification: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("(datetime('now'))"))
 
     slide: Mapped[Slide] = relationship(back_populates="images")

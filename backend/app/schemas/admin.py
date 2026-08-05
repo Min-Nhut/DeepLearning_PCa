@@ -76,3 +76,29 @@ class MigrationImportResult(BaseModel):
     imported: int
     skipped: int
     skipped_reasons: list[str]
+
+
+# ---------- migration — legacy ImageCapture SQLite connector ----------
+class SqliteCasePreview(BaseModel):
+    case_code: str
+    case_year: str | None
+    patient_name: str | None
+    slide_count: int
+    image_count: int
+
+
+class SqliteMigrationPreview(BaseModel):
+    case_count: int
+    slide_count: int
+    image_count: int
+    magnifications_found: list[str]
+    cases: list[SqliteCasePreview]
+
+
+class SqliteMigrationImportResult(BaseModel):
+    cases_imported: int
+    cases_skipped: int
+    slides_imported: int
+    images_imported: int
+    images_skipped: int
+    skipped_reasons: list[str]

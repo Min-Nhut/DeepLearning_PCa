@@ -142,7 +142,13 @@ def add_slide(
     if count >= MAX_SLIDES_PER_CASE:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Đã đạt giới hạn {MAX_SLIDES_PER_CASE} slide/ca bệnh")
     next_number = (db.query(func.max(Slide.slide_number)).filter(Slide.case_id == case_id).scalar() or 0) + 1
-    slide = Slide(case_id=case_id, slide_number=next_number, legacy_slide_label=payload.legacy_slide_label)
+    # Default label follows the real pairing convention observed in the legacy
+    # ImageCapture desktop app's own data ("Slide1-2", "Slide3-4", ...) — each
+    # of our slide rows corresponds 1:1 to one of theirs, so slide_number N
+    # maps to "Slide {2N-1}-{2N}". Still overridable via payload (e.g. by the
+    # SQLite migration importer, which carries the legacy app's real label).
+    label = payload.legacy_slide_label or f"Slide {2 * next_number - 1}-{2 * next_number}"
+    slide = Slide(case_id=case_id, slide_number=next_number, legacy_slide_label=label)
     db.add(slide)
     db.flush()
     write_audit_log(db, user, "add_slide", "slide", slide.id, details=f"case_id={case_id}")
@@ -213,11 +219,14 @@ async def upload_image(
     file: UploadFile,
     description: str | None = Form(None),
     source: str = Form("upload"),
+    magnification: str | None = Form(None),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> Image:
     if source not in ("upload", "live_capture"):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "source phải là 'upload' hoặc 'live_capture'")
+    if magnification is not None and magnification not in ("4x", "10x", "20x", "40x"):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "magnification phải là '4x', '10x', '20x' hoặc '40x'")
 
     slide = db.get(Slide, slide_id)
     if slide is None:
@@ -246,6 +255,7 @@ async def upload_image(
         format=ext,
         uploaded_by=user.id,
         source=source,
+        magnification=magnification,
     )
     db.add(image)
     db.flush()

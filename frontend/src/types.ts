@@ -9,6 +9,7 @@ export interface CaseImage {
   id: string; // display label, "H{image_number}"
   desc: string; // images.description
   dbId?: number; // real images.id — present once backed by the real API (see lib/caseAdapter.ts)
+  magnification?: string | null; // images.magnification
 }
 
 export interface CaseSlide {
@@ -121,6 +122,32 @@ export interface MigrationImportResult {
   skipped_reasons: string[];
 }
 
+// ---------- migration — legacy ImageCapture SQLite connector ----------
+export interface SqliteCasePreview {
+  case_code: string;
+  case_year: string | null;
+  patient_name: string | null;
+  slide_count: number;
+  image_count: number;
+}
+
+export interface SqliteMigrationPreview {
+  case_count: number;
+  slide_count: number;
+  image_count: number;
+  magnifications_found: string[];
+  cases: SqliteCasePreview[];
+}
+
+export interface SqliteMigrationImportResult {
+  cases_imported: number;
+  cases_skipped: number;
+  slides_imported: number;
+  images_imported: number;
+  images_skipped: number;
+  skipped_reasons: string[];
+}
+
 // ---------- cases / slides / images (backend/app/schemas.py) ----------
 export interface ApiImage {
   id: number;
@@ -131,6 +158,7 @@ export interface ApiImage {
   height_px: number | null;
   format: string | null;
   source: 'upload' | 'live_capture' | 'legacy_import';
+  magnification: '4x' | '10x' | '20x' | '40x' | null;
   created_at: string;
 }
 
@@ -138,6 +166,7 @@ export interface ApiSlide {
   id: number;
   case_id: number;
   slide_number: number;
+  legacy_slide_label: string | null;
   images: ApiImage[];
 }
 

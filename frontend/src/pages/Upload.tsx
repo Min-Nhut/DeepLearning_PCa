@@ -17,7 +17,7 @@ const NEW_SLIDE_VALUE = '__new__';
 const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
 
 interface SlideOption { dbId: number; label: string; imageCount: number }
-interface UploadedImage { dbId: number; label: string }
+interface UploadedImage { dbId: number; label: string; magnification?: string | null }
 
 export function Upload({
   token, cases, initialCaseDbId, initialSlideDbId, onReload, onGoPipeline,
@@ -34,6 +34,9 @@ export function Upload({
   const [selectedSlideId, setSelectedSlideId] = useState<number | ''>('');
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [description, setDescription] = useState('');
+  // Default 40x — per CLAUDE.md, the closest practical match to the PANDA/Radboud
+  // training patches' physical scale (scanned near the scanner's max objective).
+  const [magnification, setMagnification] = useState<'4x' | '10x' | '20x' | '40x'>('40x');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastImageId, setLastImageId] = useState<number | null>(null);
@@ -61,7 +64,7 @@ export function Upload({
   useEffect(() => {
     const c = cases.find((cc) => cc.dbId === selectedCaseId);
     const s = c?.slides.find((ss) => ss.dbId === selectedSlideId);
-    setImages((s?.images ?? []).filter((im) => im.dbId != null).map((im) => ({ dbId: im.dbId as number, label: im.id })));
+    setImages((s?.images ?? []).filter((im) => im.dbId != null).map((im) => ({ dbId: im.dbId as number, label: im.id, magnification: im.magnification })));
   }, [selectedCaseId, selectedSlideId, cases]);
 
   // Camera lifecycle — request the microscope camera (any UVC-class webcam
@@ -128,8 +131,13 @@ export function Upload({
     if (!slideId) return;
     setBusy(true);
     try {
-      const img = await api.uploadImage(token, slideId, file, { description: description || undefined, source, filename: source === 'live_capture' ? 'capture.jpg' : undefined });
-      setImages((prev) => [...prev, { dbId: img.id, label: `H${img.image_number}` }]);
+      const img = await api.uploadImage(token, slideId, file, {
+        description: description || undefined,
+        source,
+        filename: source === 'live_capture' ? 'capture.jpg' : undefined,
+        magnification,
+      });
+      setImages((prev) => [...prev, { dbId: img.id, label: `H${img.image_number}`, magnification: img.magnification }]);
       setSlides((prev) => prev.map((s) => (s.dbId === slideId ? { ...s, imageCount: s.imageCount + 1 } : s)));
       setLastImageId(img.id);
       onReload();
@@ -198,6 +206,18 @@ export function Upload({
         <div style={{ display: 'grid', gridTemplateColumns: '210px 1fr', gap: 16, padding: 16 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <Button variant="accent" fullWidth iconLeft={<Icon name="aperture" />} onClick={handleCapture} disabled={!cameraReady || busy}>Lưu</Button>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-strong)' }}>Độ phóng đại</label>
+            <Select
+              size="sm"
+              options={[
+                { value: '4x', label: '4x' },
+                { value: '10x', label: '10x' },
+                { value: '20x', label: '20x' },
+                { value: '40x', label: '40x (khuyến nghị)' },
+              ]}
+              value={magnification}
+              onChange={(e) => setMagnification(e.target.value as '4x' | '10x' | '20x' | '40x')}
+            />
             <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-strong)' }}>Mô tả</label>
             <textarea
               value={description}
@@ -231,7 +251,9 @@ export function Upload({
               const im = images[i];
               return (
                 <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>{im ? im.label : `Hình ${i + 1}`}</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>
+                    {im ? im.label : `Hình ${i + 1}`}{im?.magnification ? ` · ${im.magnification}` : ''}
+                  </div>
                   {im ? (
                     <div style={{ height: 82, borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border-subtle)', position: 'relative' }}>
                       <ImageThumb imageId={im.dbId} token={token} />

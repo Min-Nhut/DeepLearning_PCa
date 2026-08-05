@@ -81,6 +81,8 @@ CREATE TABLE images (
     source                  TEXT NOT NULL DEFAULT 'upload'
                                 CHECK (source IN ('upload', 'live_capture', 'legacy_import')),
     legacy_image_id          TEXT,                          -- truy vết ảnh gốc từ hệ thống desktop
+    magnification            TEXT                            -- độ phóng đại lúc chụp, vd hệ cũ (SlideDoPhongDai)
+                                CHECK (magnification IN ('4x', '10x', '20x', '40x')),
 
     created_at              TEXT NOT NULL DEFAULT (datetime('now')),
 

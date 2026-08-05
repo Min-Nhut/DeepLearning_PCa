@@ -31,7 +31,7 @@ export function caseFromApi(c: ApiCase): Case {
       .map((s) => ({
         id: `S${s.slide_number}`,
         dbId: s.id,
-        label: `Slide ${s.slide_number}`,
+        label: s.legacy_slide_label ?? `Slide ${s.slide_number}`,
         images: s.images
           .slice()
           .sort((a, b) => a.image_number - b.image_number)
@@ -39,6 +39,7 @@ export function caseFromApi(c: ApiCase): Case {
             id: `H${im.image_number}`,
             dbId: im.id,
             desc: im.description ?? '',
+            magnification: im.magnification,
           })),
       })),
   };

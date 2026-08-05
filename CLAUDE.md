@@ -58,7 +58,10 @@ SQLite schema at [docs/schema.sql](docs/schema.sql). Hierarchy: **users → case
   (color normalization, tissue mask, blur/quality check — **not implemented**, still
   future work) 1:1 per image. `source` distinguishes `'upload'` (file picker) vs
   `'live_capture'` (microscope camera capture) vs `'legacy_import'` — see
-  [Case/Slide/Image API](#caseslideimage-api).
+  [Case/Slide/Image API](#caseslideimage-api). `magnification` (added 2026-08-05,
+  `'4x'|'10x'|'20x'|'40x'`, nullable) records the objective used at capture time — see the
+  Legacy desktop app integration subsection under
+  [Frontend↔backend integration](#frontendbackend-integration).
 - `inference_runs` — one row per AI pipeline execution on an image (`status`:
   pending/running/completed/failed), fanning out to `segmentation_results` (6-class
   tissue mask + per-class area — **not binary**, see
@@ -454,11 +457,14 @@ the fly when serving, since browsers can't render `<img src=".tiff">` natively.
   `patient_name` when `anonymize=true`. Per-row failures (e.g. duplicate
   `case_code`+`case_year`) are isolated with a SQL `SAVEPOINT`
   (`db.begin_nested()`) so one bad row doesn't roll back the whole import batch. Writes
-  one `audit_logs` row summarizing the import.
-  **This does not connect to the real legacy desktop database** — no access/engine info
-  was available yet (PRD §8.3 flags this as an open question). Admin uploads a CSV
-  exported from the old system instead; swap in a real connector later once the legacy
-  engine (SQL Server Compact/SQLite/Access?) is confirmed.
+  one `audit_logs` row summarizing the import. Case-only (no slides/images) — kept
+  around as the fallback for whatever ad-hoc export an admin can produce by hand.
+- `POST /migration/sqlite-preview`, `POST /migration/sqlite-import` (added 2026-08-05) —
+  **the real connector PRD §8.3 flagged as an open question**, now resolved: the legacy
+  desktop app ("ImageCapture", `D:\LV\Debug\`) turned out to be sitting right in the repo
+  root, engine confirmed as plain SQLite via EF6 (`ImageCapture.exe.config`'s
+  `System.Data.SQLite.EF6` provider). Full write-up under
+  [Frontend↔backend integration](#frontendbackend-integration)'s Migration subsection.
 
 ### Case/Slide/Image API
 
@@ -468,12 +474,17 @@ flat 2-role model has no per-doctor case ownership).
 - `GET /api/cases`, `POST /api/cases`, `GET /api/cases/{id}`, `PATCH /api/cases/{id}` —
   standard CRUD; `POST`/`PATCH` reject a duplicate `case_code`+`case_year` with `409`.
 - `POST /api/cases/{id}/slides` — adds a slide, auto-numbered (`max+1`), capped at 12/case
-  (PRD §8.3).
+  (PRD §8.3). `legacy_slide_label` (added 2026-08-05, see Migration subsection below for
+  the "legacy" it refers to) defaults to `"Slide {2N-1}-{2N}"` when the caller doesn't
+  supply one — matches the real pairing convention found in the legacy desktop app's own
+  data ("Slide1-2", "Slide3-4", ...), so every new slide (not just migrated ones) reads
+  the way the hospital's lab already names them; still overridable via the request body.
 - `POST /api/cases/slides/{slide_id}/images` — multipart image upload (`file` +
-  optional `description` + `source` form fields). Capped at 8 images/slide (PRD §8.4)
-  and at `MAX_UPLOAD_BYTES` (200MB — microscope TIFFs can legitimately be several dozen
-  MB, see below) with a `413`; rejects anything Pillow can't decode as JPEG/PNG/TIFF with
-  `400`.
+  optional `description` + `source` + `magnification` form fields — the last one added
+  2026-08-05, `'4x'|'10x'|'20x'|'40x'`, optional, 400 on any other value). Capped at 8
+  images/slide (PRD §8.4) and at `MAX_UPLOAD_BYTES` (200MB — microscope TIFFs can
+  legitimately be several dozen MB, see below) with a `413`; rejects anything Pillow can't
+  decode as JPEG/PNG/TIFF with `400`.
 - `GET /api/images/{image_id}/file?size=thumb|view|original` (default `thumb`) —
   auth-gated like everything else (**not** a public static mount, since this can be real
   patient imagery); the frontend fetches it as an authenticated blob
@@ -819,9 +830,15 @@ the nav item is not real access control — the backend enforces it either way).
   `Cases.tsx`, `CaseRow`, and `DoctorDashboard`'s recent-case list keep working completely
   unchanged — only their data source changed, not their code.
 - **`CaseForm`** now does its own `createCase`/`updateCase` call (like every other form in
-  this app) instead of `App.tsx` mutating a local array; the fake "Slide 1,2 / Slide 3,4…"
-  pair-picker from the mockup is gone (it never mapped to anything real) — slides are
-  added from `CaseDetail` after the case exists.
+  this app) instead of `App.tsx` mutating a local array; the mockup's "Slide 1,2 / Slide
+  3,4…" pair-picker itself is gone — slides are added from `CaseDetail` after the case
+  exists. **Correction (2026-08-05)**: this bullet originally said the pair-picker "never
+  mapped to anything real" — that was wrong. `Debug/ImageCapture.db` (the actual legacy
+  desktop app, see the Migration subsection below) names its slides exactly this way
+  ("Slide1-2", "Slide3-4", ...); the mockup was accurately modeling a real lab convention,
+  the assumption was just never checked against the real software. The convention itself
+  is now restored — see `add_slide`'s new default `legacy_slide_label` above and
+  `caseAdapter.ts`'s `slide.label` below — just not as a manual picker in `CaseForm`.
 - **`CaseDetail`** adds a real "Thêm slide mới" button (`POST /slides`) and renders real
   image thumbnails via `ImageThumb`. Its Gleason header shows a neutral "Chưa có kết quả
   AI" badge instead of the mockup's `pattern={c.gleason || '3'}` fallback — that fallback
@@ -851,6 +868,102 @@ the nav item is not real access control — the backend enforces it either way).
   permission-denied path — confirmed the UI degrades cleanly ("Chưa được cấp quyền truy
   cập camera." + a hint that file upload still works), no crash, no console errors. The
   actual live-video-frame-capture path needs verification on real hardware.
+
+### Legacy desktop app integration (2026-08-05)
+
+The user pointed at `D:\LV\Debug\` — a build output that turned out to be **the real
+desktop software already in use at the hospital** ("ImageCapture", WinForms/.NET 4.7.2,
+DevExpress, EF6), sitting in the repo root the whole time, complete with its own real
+SQLite database (`Debug/ImageCapture.db`) and real microscope-captured TIFFs
+(`Debug/Images/*.tiff`). Read directly (schema + sample rows, not guessed):
+
+```
+CaBenh (Id, MaSo, MaNam, HoTen, Tuoi, KetLuan, NgayTao)
+Slide (Id, CaBenhId, TenSlide, MoTa, NgayTao)               -- TenSlide "Slide1-2","Slide3-4"...
+SlideDoPhongDai (Id, SlideId, DoPhongDai, GhiChu)            -- DoPhongDai "4X"/"10X"/"20X"/"40X"
+HinhAnh (Id, SlideDoPhongDaiId, TenFile, DuongDan, MoTa, ...) -- MoTa = free-text Gleason label
+```
+
+Confirmed this schema so closely mirrors ours that `schema.sql` already had
+`legacy_case_id`/`legacy_slide_label`/`legacy_image_id`/`source='legacy_import'` columns
+sitting unused — someone designed for exactly this migration up front, it just hadn't
+been executed. Three concrete integrations landed from this, all user-prioritized via
+`AskUserQuestion`:
+
+- **`images.magnification`** (new column, `'4x'|'10x'|'20x'|'40x'`, nullable) — added to
+  `docs/schema.sql` (with a `CHECK`) and applied to the live `database/prostaai.db` via
+  `ALTER TABLE images ADD COLUMN magnification TEXT;` (deliberately **without** a `CHECK`
+  on the live ALTER — SQLite's constraint support for columns added via `ALTER TABLE` is
+  narrower/version-sensitive than a full `CREATE TABLE`, not worth testing against the
+  live file; validated in the Pydantic layer instead, see Case/Slide/Image API above).
+  This is the field CLAUDE.md's own Next steps had been flagging as missing since the
+  µm/pixel-calibration discussion — the legacy app's `SlideDoPhongDai` junction table is
+  exactly this concept (one row per slide × magnification), confirming it's a real,
+  already-validated field to add, not a guess. `Upload.tsx` now has a "Độ phóng đại"
+  `Select` (default `40x`, per the earlier documented recommendation that 40x is the
+  closest match to the PANDA/Radboud training scale) alongside the description field;
+  `CaseDetail.tsx` shows it as a small badge on each thumbnail.
+- **Slide pairing restored**: `add_slide` (`routers/cases.py`) now defaults
+  `legacy_slide_label` to `f"Slide {2*next_number-1}-{2*next_number}"` when the caller
+  doesn't supply one — the exact formula that reproduces the legacy data's own numbering
+  (slide 1→"Slide 1-2", 2→"Slide 3-4", 3→"Slide 5-6", ... confirmed against
+  `Debug/ImageCapture.db`'s real rows). `caseAdapter.ts`'s `slide.label` now reads
+  `s.legacy_slide_label ?? \`Slide ${s.slide_number}\`` instead of always the generic
+  form — every existing consumer (`CaseDetail`, `Upload`, `DoctorDashboard`) picked this
+  up for free since they already rendered `slide.label`, no other code changed. See the
+  correction note on the old "fake pair-picker" bullet above — the mockup wasn't fake.
+- **Real legacy SQLite connector**, alongside (not replacing) the CSV path: new
+  `POST /api/admin/migration/sqlite-preview` and `.../sqlite-import`
+  (`routers/admin.py`). Both write the uploaded `.db` to a `tempfile`, open it **read-only**
+  (`sqlite3.connect(f"file:{path}?mode=ro", uri=True)`, stdlib — no new dependency), and
+  reject anything missing the 4 expected tables with a `400` before doing any work. Preview
+  returns case/slide/image counts + a per-case breakdown + the distinct magnifications
+  found, no DB writes. Import walks `CaBenh → Slide → (SlideDoPhongDai⋈HinhAnh)`, creating
+  our `Case`/`Slide`/`Image` rows with `source='legacy_import'` and the real
+  `legacy_case_id`/`legacy_slide_label`/`legacy_image_id`/`magnification` carried over
+  (`DoPhongDai` lowercased to match our convention); reuses the **same** nested-SAVEPOINT
+  duplicate-tolerance pattern as the CSV importer, and the **same**
+  `_process_and_store()`/`_read_capped()`/`UPLOAD_ROOT` helpers as the normal image-upload
+  endpoint (imported from `routers/cases.py` — no duplicated file-handling logic). The
+  legacy DB's `HinhAnh.DuongDan` is an absolute path from the *original* machine and is
+  never valid here, so real image bytes are matched back to their `HinhAnh` row by
+  filename (`TenFile`) against a second, optional multipart field (`image_files: list[
+  UploadFile]`) the admin uploads alongside the `.db` — a slide with no matching file still
+  gets created (metadata-only), just with `images_skipped` incremented and a reason
+  recorded, rather than blocking the whole import. `Migration.tsx` gained a source-type
+  toggle at Step 0 ("File CSV" vs "Cơ sở dữ liệu ImageCapture (.db)"); the sqlite branch
+  gets its own file inputs (one `.db`, one `multiple` for images), its own Step-1 preview
+  rendering (case list + counts instead of CSV column mapping), and its own Step-3 result
+  shape — Steps 2 (anonymize) and the overall 4-step shape are shared with the CSV flow.
+  **Verified for real, not just via the UI**: ran the actual `Debug/ImageCapture.db` +
+  all 9 files in `Debug/Images/` through `POST .../sqlite-import` — preview and import
+  both matched the DB's own real counts exactly (`sqlite3 Debug/ImageCapture.db` showed
+  `CaBenh=2, Slide=7, SlideDoPhongDai=28, HinhAnh=8` beforehand); the import produced 2
+  cases / 7 slides / 8 images / 0 skipped, `sqlite3 database/prostaai.db` confirmed
+  `legacy_slide_label` values exactly matching the source `TenSlide` strings
+  ("Slide1-2".."Slide11-12"), image `description` holding the original free-text Gleason
+  labels ("Lành tính"/"Gleason 3+4"/"Gleason 3+3") verbatim, `magnification` correctly
+  lowercased, and `width_px`/`height_px` matching the real TIFF dimensions; one imported
+  image was fetched back through `GET /api/images/{id}/file?size=thumb` and returned real
+  JPEG bytes. Then in the actual browser UI (admin login): `AdminDashboard`'s activity feed
+  showed the real `migrate_data` audit entry with the correct counts; logged in as a
+  doctor, opened the imported/manually-tested case in `CaseDetail` and confirmed the
+  auto-paired slide label ("Slide 7-8") and the "40x" magnification badge both rendered
+  correctly on a real uploaded image; `Upload.tsx`'s "Độ phóng đại" selector and the
+  already-uploaded strip's magnification suffix ("H1 · 40x") both confirmed too. All test
+  cases (manual + both legacy imports) deleted afterward via the real `DELETE
+  /api/images/{id}` endpoint + cascading `sqlite3` cleanup for the case/slide rows and
+  `backend/uploads/case_*` directories; the user's real case (`0001`) confirmed untouched
+  throughout (`sqlite3 database/prostaai.db "SELECT id, case_code FROM cases;"` → only
+  `5|0001` remained).
+- **Not done this pass** (out of scope per the user's own prioritization —
+  `AskUserQuestion` offered it, not selected): `tiling.py`'s 500×500 patch extraction
+  doesn't special-case source images smaller than 500×500 — real legacy captures range
+  from 193×120 up to ~2752×1536 (see `Debug/Images/*.tiff`), well under the training
+  patch size, so a naive `cv2.resize()` to 256/224 for inference would examine the
+  *entire* tiny capture blown up rather than a physically-comparable patch. Not a crash,
+  just a silent accuracy risk on exactly the kind of image this integration pass just
+  made it easier to bring in — flagged for a future pass, not fixed here.
 
 ### Pipeline/Viewer/Report (2026-08-04)
 
@@ -1202,10 +1315,13 @@ Roughly in the order they unblock each other:
    actually re-triggered anything before this pass. See
    [Frontend↔backend integration](#frontendbackend-integration)'s Pipeline/Viewer/Report
    subsection for the full writeup and verification.
-4. Pull the real µm/pixel value from a sample PANDA WSI file's metadata (`openslide.mpp-x`/
-   `mpp-y` or equivalent), add the "độ phóng đại" field to Upload/live-capture (PRD §8.4)
-   so 4x/10x microscope captures can be rescaled to match the 40x≈Level-0 training scale
-   instead of guessed.
+4. ~~Add the "độ phóng đại" field to Upload/live-capture~~ — **done (2026-08-05)**:
+   `images.magnification` + `Upload.tsx`'s selector, see [Frontend↔backend
+   integration](#frontendbackend-integration)'s Legacy desktop app integration
+   subsection. **Still open**: pull the real µm/pixel value from a sample PANDA WSI
+   file's metadata (`openslide.mpp-x`/`mpp-y` or equivalent) so a recorded 4x/10x
+   capture can actually be *rescaled* to match the 40x≈Level-0 training scale, not just
+   labeled — that conversion factor itself is still unmeasured.
 5. ~~v2 heatmap~~ — **moot (2026-08-05)**: the user asked to drop heatmap output from the
    prediction entirely rather than upgrade it, so the v1 confidence heatmap that used to
    motivate this item was removed instead of replaced — see the dated bullet under
@@ -1221,9 +1337,16 @@ Roughly in the order they unblock each other:
 8. Verify the live camera capture path (`Upload.tsx`) on a real machine with a microscope
    camera attached — this dev sandbox has none, so only the permission/no-device fallback
    paths could be exercised here.
-9. Real legacy-database connector once the engine/access is confirmed (see the
-   `/migration/*` CSV-based stand-in in [Backend architecture](#backend-architecture) —
-   anonymization is already enforced there and must stay a hard requirement).
+9. ~~Real legacy-database connector once the engine/access is confirmed~~ — **done
+   (2026-08-05)**: the engine turned out to be plain SQLite (the actual desktop app,
+   `D:\LV\Debug\`, was found sitting in the repo), so `POST /api/admin/migration/
+   sqlite-preview`/`sqlite-import` now read it directly — cases, slides (with real
+   labels), images (with real magnification + files), not just the CSV stand-in's
+   cases-only import. See [Frontend↔backend integration](#frontendbackend-integration)'s
+   Legacy desktop app integration subsection for the full verification (real
+   `Debug/ImageCapture.db` + `Debug/Images/*.tiff` imported end-to-end, anonymization
+   confirmed enforced). CSV path kept as a fallback for whenever only a hand-exported
+   CSV is available, not removed.
 10. Decide whether to introduce `react-router` once real navigation (deep links, browser
     back/forward) is needed — not required for the current single-session demo.
 11. Report export (PRD §8.8) — explicitly declined by the user for now; `Report.tsx` now

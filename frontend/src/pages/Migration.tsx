@@ -4,24 +4,43 @@ import { Card } from '../components/ui/Card';
 import { Checkbox } from '../components/ui/Checkbox';
 import { Icon } from '../lib/icon';
 import * as api from '../lib/api';
-import type { MigrationImportResult, MigrationPreview } from '../types';
+import type { MigrationImportResult, MigrationPreview, SqliteMigrationImportResult, SqliteMigrationPreview } from '../types';
 
-const STEPS: [string, string, string][] = [
-  ['Kết nối nguồn', 'Chọn file CSV xuất từ hệ thống desktop', 'database'],
-  ['Ánh xạ trường', 'Ca bệnh → Slide → Ảnh', 'git-compare-arrows'],
-  ['Ẩn danh hóa', 'Loại bỏ Họ tên, giữ mã ẩn danh', 'shield-off'],
-  ['Nhập dữ liệu', 'Ghi vào SQLite', 'import'],
-];
+type SourceType = 'csv' | 'sqlite';
+
+const STEPS: Record<SourceType, [string, string, string][]> = {
+  csv: [
+    ['Kết nối nguồn', 'Chọn file CSV xuất từ hệ thống desktop', 'database'],
+    ['Ánh xạ trường', 'Ca bệnh → Slide → Ảnh', 'git-compare-arrows'],
+    ['Ẩn danh hóa', 'Loại bỏ Họ tên, giữ mã ẩn danh', 'shield-off'],
+    ['Nhập dữ liệu', 'Ghi vào SQLite', 'import'],
+  ],
+  sqlite: [
+    ['Kết nối nguồn', 'Tải file ImageCapture.db + ảnh gốc', 'database'],
+    ['Xem trước dữ liệu', 'Ca bệnh → Slide → Độ phóng đại → Ảnh', 'git-compare-arrows'],
+    ['Ẩn danh hóa', 'Loại bỏ Họ tên, giữ mã ẩn danh', 'shield-off'],
+    ['Nhập dữ liệu', 'Ghi vào SQLite', 'import'],
+  ],
+};
 
 export function Migration({ token, onFinish }: { token: string; onFinish: () => void }) {
+  const [sourceType, setSourceType] = useState<SourceType>('csv');
   const [step, setStep] = useState(0);
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<MigrationPreview | null>(null);
   const [anonymize, setAnonymize] = useState(true);
   const [confirmedPermission, setConfirmedPermission] = useState(false);
-  const [result, setResult] = useState<MigrationImportResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // CSV branch
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<MigrationPreview | null>(null);
+  const [result, setResult] = useState<MigrationImportResult | null>(null);
+
+  // SQLite branch — legacy "ImageCapture" desktop app's real database (see CLAUDE.md)
+  const [dbFile, setDbFile] = useState<File | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [sqlitePreview, setSqlitePreview] = useState<SqliteMigrationPreview | null>(null);
+  const [sqliteResult, setSqliteResult] = useState<SqliteMigrationImportResult | null>(null);
 
   async function handleFileChosen(f: File) {
     setFile(f);
@@ -38,8 +57,26 @@ export function Migration({ token, onFinish }: { token: string; onFinish: () => 
     }
   }
 
+  async function handleDbFileChosen(f: File) {
+    setDbFile(f);
+    setError(null);
+    setBusy(true);
+    try {
+      const p = await api.migrationSqlitePreview(token, f);
+      setSqlitePreview(p);
+      setStep(1);
+    } catch (err) {
+      setError(err instanceof api.ApiError ? err.message : 'Không đọc được file .db.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function handleBack() {
-    if (step === 1) { setFile(null); setPreview(null); }
+    if (step === 1) {
+      setFile(null); setPreview(null);
+      setDbFile(null); setSqlitePreview(null);
+    }
     setError(null);
     setStep((s) => Math.max(0, s - 1));
   }
@@ -59,10 +96,28 @@ export function Migration({ token, onFinish }: { token: string; onFinish: () => 
     }
   }
 
+  async function handleSqliteImport() {
+    if (!dbFile) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api.migrationSqliteImport(token, dbFile, imageFiles, anonymize);
+      setSqliteResult(r);
+      setStep(3);
+    } catch (err) {
+      setError(err instanceof api.ApiError ? err.message : 'Nhập dữ liệu thất bại.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const steps = STEPS[sourceType];
+  const canContinueStep2 = sourceType === 'csv' ? !!file : !!dbFile;
+
   return (
     <div style={{ padding: 24, maxWidth: 860, margin: '0 auto' }}>
       <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-        {STEPS.map((s, i) => (
+        {steps.map((s, i) => (
           <div key={i} style={{ flex: 1, textAlign: 'center' }}>
             <div style={{ height: 4, borderRadius: 999, background: i <= step ? 'var(--blue-600)' : 'var(--gray-200)', marginBottom: 8 }} />
             <div style={{ fontSize: 12, fontWeight: 600, color: i <= step ? 'var(--blue-800)' : 'var(--text-muted)' }}>{s[0]}</div>
@@ -72,40 +127,90 @@ export function Migration({ token, onFinish }: { token: string; onFinish: () => 
       <Card>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           <div style={{ width: 44, height: 44, borderRadius: 'var(--radius-md)', background: 'var(--blue-50)', color: 'var(--blue-600)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name={STEPS[step][2]} size={22} />
+            <Icon name={steps[step][2]} size={22} />
           </div>
           <div>
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, margin: 0, color: 'var(--text-strong)' }}>Bước {step + 1}: {STEPS[step][0]}</h2>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{STEPS[step][1]}</div>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, margin: 0, color: 'var(--text-strong)' }}>Bước {step + 1}: {steps[step][0]}</h2>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{steps[step][1]}</div>
           </div>
         </div>
 
         {step === 0 && (
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 12, background: 'var(--blue-50)', borderRadius: 'var(--radius-md)', fontSize: 12, color: 'var(--blue-800)', marginBottom: 14 }}>
-              <Icon name="info" size={15} /> Chưa có kết nối trực tiếp tới database hệ thống desktop cũ — hãy xuất dữ liệu ra file CSV (cột: Mã số, Mã năm, Họ tên, Tuổi, Kết Luận) rồi tải lên đây.
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+              <Button variant={sourceType === 'csv' ? 'primary' : 'secondary'} size="sm" onClick={() => setSourceType('csv')}>File CSV</Button>
+              <Button variant={sourceType === 'sqlite' ? 'primary' : 'secondary'} size="sm" onClick={() => setSourceType('sqlite')}>Cơ sở dữ liệu ImageCapture (.db)</Button>
             </div>
-            <label
-              style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
-                height: 130, border: '2px dashed var(--border-default)', borderRadius: 'var(--radius-lg)',
-                background: 'var(--gray-50)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13,
-              }}
-            >
-              <Icon name="upload" size={22} />
-              {file ? file.name : 'Bấm để chọn file CSV'}
-              <input
-                type="file"
-                accept=".csv"
-                style={{ display: 'none' }}
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileChosen(f); }}
-              />
-            </label>
+
+            {sourceType === 'csv' && (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 12, background: 'var(--blue-50)', borderRadius: 'var(--radius-md)', fontSize: 12, color: 'var(--blue-800)', marginBottom: 14 }}>
+                  <Icon name="info" size={15} /> Xuất dữ liệu ra file CSV (cột: Mã số, Mã năm, Họ tên, Tuổi, Kết Luận) rồi tải lên đây — chỉ nhập được ca bệnh, không có slide/ảnh.
+                </div>
+                <label
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    height: 130, border: '2px dashed var(--border-default)', borderRadius: 'var(--radius-lg)',
+                    background: 'var(--gray-50)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13,
+                  }}
+                >
+                  <Icon name="upload" size={22} />
+                  {file ? file.name : 'Bấm để chọn file CSV'}
+                  <input
+                    type="file"
+                    accept=".csv"
+                    style={{ display: 'none' }}
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileChosen(f); }}
+                  />
+                </label>
+              </>
+            )}
+
+            {sourceType === 'sqlite' && (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 12, background: 'var(--blue-50)', borderRadius: 'var(--radius-md)', fontSize: 12, color: 'var(--blue-800)', marginBottom: 14 }}>
+                  <Icon name="info" size={15} /> Kết nối trực tiếp tới database thật của phần mềm desktop cũ (SQLite). Tải lên file <code>ImageCapture.db</code>, kèm các file ảnh gốc (.tiff/.jpg/.png, thư mục "Images" của phần mềm cũ) để nhập đầy đủ ca bệnh → slide → độ phóng đại → ảnh, không chỉ mỗi ca bệnh như CSV.
+                </div>
+                <label
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    height: 110, border: '2px dashed var(--border-default)', borderRadius: 'var(--radius-lg)',
+                    background: 'var(--gray-50)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13, marginBottom: 10,
+                  }}
+                >
+                  <Icon name="database" size={20} />
+                  {dbFile ? dbFile.name : 'Bấm để chọn file ImageCapture.db'}
+                  <input
+                    type="file"
+                    accept=".db"
+                    style={{ display: 'none' }}
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleDbFileChosen(f); }}
+                  />
+                </label>
+                <label
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    height: 90, border: '2px dashed var(--border-default)', borderRadius: 'var(--radius-lg)',
+                    background: 'var(--gray-50)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13,
+                  }}
+                >
+                  <Icon name="image-plus" size={20} />
+                  {imageFiles.length > 0 ? `${imageFiles.length} file ảnh đã chọn` : 'Bấm để chọn các file ảnh đi kèm (tùy chọn)'}
+                  <input
+                    type="file"
+                    multiple
+                    accept=".tif,.tiff,.jpg,.jpeg,.png"
+                    style={{ display: 'none' }}
+                    onChange={(e) => { if (e.target.files) setImageFiles(Array.from(e.target.files)); }}
+                  />
+                </label>
+              </>
+            )}
             {busy && <div style={{ marginTop: 10, fontSize: 13, color: 'var(--text-muted)' }}>Đang đọc file…</div>}
           </div>
         )}
 
-        {step === 1 && preview && (
+        {step === 1 && sourceType === 'csv' && preview && (
           <div style={{ fontSize: 13 }}>
             <div style={{ marginBottom: 10, color: 'var(--text-body)' }}>
               Phát hiện <strong>{preview.row_count}</strong> dòng dữ liệu, <strong>{preview.columns.length}</strong> cột.
@@ -125,6 +230,35 @@ export function Migration({ token, onFinish }: { token: string; onFinish: () => 
           </div>
         )}
 
+        {step === 1 && sourceType === 'sqlite' && sqlitePreview && (
+          <div style={{ fontSize: 13 }}>
+            <div style={{ marginBottom: 6, color: 'var(--text-body)' }}>
+              Phát hiện <strong>{sqlitePreview.case_count}</strong> ca bệnh, <strong>{sqlitePreview.slide_count}</strong> slide,{' '}
+              <strong>{sqlitePreview.image_count}</strong> ảnh.
+            </div>
+            {sqlitePreview.magnifications_found.length > 0 && (
+              <div style={{ marginBottom: 10, color: 'var(--text-muted)' }}>
+                Độ phóng đại tìm thấy: {sqlitePreview.magnifications_found.join(', ')}
+              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflowY: 'auto' }}>
+              {sqlitePreview.cases.map((c, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'var(--gray-50)', borderRadius: 'var(--radius-md)' }}>
+                  <Icon name="check" size={15} style={{ color: 'var(--success)' }} />
+                  <span style={{ fontFamily: 'var(--font-mono)' }}>{c.case_code}{c.case_year ? `/${c.case_year}` : ''}</span>
+                  <span>· {c.patient_name || '(chưa có tên)'}</span>
+                  <span style={{ marginLeft: 'auto', color: 'var(--text-muted)' }}>{c.slide_count} slide · {c.image_count} ảnh</span>
+                </div>
+              ))}
+            </div>
+            {imageFiles.length === 0 && (
+              <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, padding: 12, background: 'var(--warning-soft)', borderRadius: 'var(--radius-md)', color: 'var(--warning)' }}>
+                <Icon name="triangle-alert" size={15} /> Chưa chọn file ảnh — slide sẽ được tạo nhưng chưa có ảnh nào; có thể tải ảnh sau qua "Tải ảnh & Chụp".
+              </div>
+            )}
+          </div>
+        )}
+
         {step === 2 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 12, background: 'var(--warning-soft)', borderRadius: 'var(--radius-md)', fontSize: 13, color: 'var(--warning)' }}>
@@ -135,7 +269,7 @@ export function Migration({ token, onFinish }: { token: string; onFinish: () => 
           </div>
         )}
 
-        {step === 3 && result && (
+        {step === 3 && sourceType === 'csv' && result && (
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--success)', fontSize: 14, fontWeight: 500, marginBottom: 8 }}>
               <Icon name="check-circle" size={18} /> Đã nhập {result.imported} ca, bỏ qua {result.skipped}.
@@ -148,13 +282,32 @@ export function Migration({ token, onFinish }: { token: string; onFinish: () => 
           </div>
         )}
 
+        {step === 3 && sourceType === 'sqlite' && sqliteResult && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--success)', fontSize: 14, fontWeight: 500, marginBottom: 8 }}>
+              <Icon name="check-circle" size={18} />
+              Đã nhập {sqliteResult.cases_imported} ca, {sqliteResult.slides_imported} slide, {sqliteResult.images_imported} ảnh
+              — bỏ qua {sqliteResult.cases_skipped} ca, {sqliteResult.images_skipped} ảnh.
+            </div>
+            {sqliteResult.skipped_reasons.length > 0 && (
+              <ul style={{ margin: 0, paddingLeft: 20, fontSize: 12, color: 'var(--text-muted)' }}>
+                {sqliteResult.skipped_reasons.map((r, i) => <li key={i}>{r}</li>)}
+              </ul>
+            )}
+          </div>
+        )}
+
         {error && <div style={{ marginTop: 12, fontSize: 13, color: 'var(--red-600)' }}>{error}</div>}
 
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 22 }}>
           <Button variant="ghost" disabled={step === 0 || busy} onClick={handleBack}>Quay lại</Button>
-          {step === 1 && <Button variant="primary" iconRight={<Icon name="arrow-right" />} onClick={() => setStep(2)}>Tiếp tục</Button>}
+          {step === 1 && <Button variant="primary" iconRight={<Icon name="arrow-right" />} disabled={!canContinueStep2} onClick={() => setStep(2)}>Tiếp tục</Button>}
           {step === 2 && (
-            <Button variant="primary" iconRight={<Icon name="arrow-right" />} disabled={!confirmedPermission || busy} onClick={handleImport}>
+            <Button
+              variant="primary" iconRight={<Icon name="arrow-right" />}
+              disabled={!confirmedPermission || busy}
+              onClick={sourceType === 'csv' ? handleImport : handleSqliteImport}
+            >
               {busy ? 'Đang nhập…' : 'Nhập dữ liệu'}
             </Button>
           )}
