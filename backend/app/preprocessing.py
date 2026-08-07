@@ -7,6 +7,7 @@ for no accuracy benefit at this prototype's scale.
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import cv2
@@ -14,14 +15,27 @@ import numpy as np
 
 BLUR_VARIANCE_THRESHOLD = 100.0  # tunable heuristic, not a calibrated clinical value
 
-# Fixed Macenko reference stain vectors + max concentrations (standard H&E
-# reference values from the original Macenko et al. 2009 paper / widely reused
-# in stain-normalization implementations) — the "target" appearance every
-# image gets normalized towards.
-_REFERENCE_STAIN_MATRIX = np.array([[0.5626, 0.2159], [0.7201, 0.8012], [0.4062, 0.5581]])
-_REFERENCE_MAX_CONC = np.array([1.9705, 1.0308])
-_OD_THRESHOLD = 0.15
-_ANGULAR_PERCENTILE = 1
+# Macenko reference stain vectors + max concentrations, fit against a real
+# 300-image random sample of the PANDA train set (Radboud) — see
+# stain_reference.json for the full extraction metadata. Replaces the earlier
+# generic textbook Macenko values (from the original 2009 paper, not derived
+# from this project's own training data) — every new image is normalized
+# towards *this* dataset's real, typical staining appearance instead.
+_REFERENCE = json.loads((Path(__file__).parent / "stain_reference.json").read_text(encoding="utf-8"))
+# JSON stores stain_matrix as (2 stains x 3 RGB channels) — one row per stain
+# vector — transposed here to (3 channels x 2 stains) to match this module's
+# `stain_matrix @ concentrations -> OD` convention (columns are stain vectors).
+_REFERENCE_STAIN_MATRIX = np.array(_REFERENCE["stain_matrix"]).T
+_REFERENCE_MAX_CONC = np.array(_REFERENCE["max_concentration"])
+# Luminosity-based tissue/background split (standard Macenko-implementation
+# convention, distinct from an OD-magnitude threshold): a pixel is tissue if
+# its normalized brightness is below this — background glass/mounting medium
+# sits close to 1.0 (white), stained tissue is darker.
+_LUMINOSITY_THRESHOLD = _REFERENCE["luminosity_threshold"]
+# Symmetric percentile split for the two extreme stain-vector angles in the
+# SVD projection (the reference's own "upper" percentile; the code below
+# derives the matching lower one as 100 - this).
+_ANGULAR_PERCENTILE = _REFERENCE["angular_percentile"]
 
 
 def _laplacian_variance(gray: np.ndarray) -> float:
@@ -38,17 +52,27 @@ def _tissue_mask(bgr: np.ndarray) -> np.ndarray:
     return mask
 
 
-def _macenko_normalize(bgr: np.ndarray) -> np.ndarray:
-    """Macenko stain normalization against a fixed reference stain vector.
-    Raises ValueError on degenerate (near-blank / no-tissue) images instead of
-    producing garbage output — caller must handle that and skip normalization."""
+def normalize_stain(bgr: np.ndarray) -> np.ndarray:
+    """Macenko stain normalization against the real PANDA-derived reference
+    (see `_REFERENCE`/stain_reference.json). Public — also used by
+    `inference/tiling.py` to normalize each tissue patch before it's fed to
+    the segmentation/classification models, not just for the upload-time QC
+    derivative. Raises ValueError on degenerate (near-blank / no-tissue)
+    input instead of producing garbage output — callers must handle that and
+    fall back to the un-normalized image."""
     rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB).reshape(-1, 3).astype(np.float64)
 
-    # Optical density transform; drop near-transparent (background) pixels.
-    od = -np.log((rgb + 1.0) / 256.0)
-    od_thresh = od[np.all(od > _OD_THRESHOLD, axis=1)]
-    if od_thresh.shape[0] < 100:
+    # Luminosity-based tissue/background split (matches how the reference
+    # itself was fit — see _LUMINOSITY_THRESHOLD above), not an OD-magnitude
+    # threshold: background (glass/mounting medium) is bright/near-white,
+    # tissue is darker.
+    luminosity = rgb.mean(axis=1) / 255.0
+    tissue_pixels = rgb[luminosity < _LUMINOSITY_THRESHOLD]
+    if tissue_pixels.shape[0] < 100:
         raise ValueError("not enough tissue pixels for stain normalization")
+
+    od = -np.log((rgb + 1.0) / 256.0)
+    od_thresh = -np.log((tissue_pixels + 1.0) / 256.0)
 
     # Stain vectors via SVD on the OD covariance, project onto the plane of
     # the two largest eigenvectors, find robust extreme angles (this is the
@@ -59,8 +83,8 @@ def _macenko_normalize(bgr: np.ndarray) -> np.ndarray:
 
     projection = od_thresh @ top_two
     angles = np.arctan2(projection[:, 1], projection[:, 0])
-    min_angle = np.percentile(angles, _ANGULAR_PERCENTILE)
-    max_angle = np.percentile(angles, 100 - _ANGULAR_PERCENTILE)
+    min_angle = np.percentile(angles, 100 - _ANGULAR_PERCENTILE)
+    max_angle = np.percentile(angles, _ANGULAR_PERCENTILE)
 
     v_min = top_two @ np.array([np.cos(min_angle), np.sin(min_angle)])
     v_max = top_two @ np.array([np.cos(max_angle), np.sin(max_angle)])
@@ -100,7 +124,7 @@ def run_preprocessing(view_path: Path, dest_dir: Path, stem: str) -> dict:
 
     normalized_image_path: str | None = None
     try:
-        normalized = _macenko_normalize(bgr)
+        normalized = normalize_stain(bgr)
         norm_dest = dest_dir / f"{stem}_normalized.jpg"
         cv2.imwrite(str(norm_dest), normalized, [cv2.IMWRITE_JPEG_QUALITY, 88])
         normalized_image_path = str(norm_dest)

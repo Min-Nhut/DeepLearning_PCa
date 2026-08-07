@@ -66,6 +66,10 @@ class SlideCreate(BaseModel):
     legacy_slide_label: str | None = None
 
 
+class SlideMove(BaseModel):
+    direction: Literal["up", "down"]
+
+
 # ---------- preprocessing ----------
 class PreprocessingOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -76,3 +80,22 @@ class PreprocessingOut(BaseModel):
     has_normalized_image: bool
     has_tissue_mask: bool
     processed_at: str
+
+
+# ---------- case-level Gleason aggregation ----------
+class CaseGleasonPerImage(BaseModel):
+    image_id: int
+    primary_pattern: int | None
+    secondary_pattern: int | None
+    cancer_area_percentage: float | None
+
+
+class CaseGleasonOut(BaseModel):
+    case_id: int
+    primary_pattern: int | None
+    secondary_pattern: int | None
+    total_score: int | None
+    grade_group: int | None
+    images_confirmed: int
+    images_total: int
+    per_image: list[CaseGleasonPerImage]

@@ -102,19 +102,36 @@ export function Upload({
     };
   }, []);
 
-  async function ensureSlide(): Promise<number | null> {
-    if (selectedSlideId) return selectedSlideId as number;
-    if (!selectedCaseId) { setError('Chọn ca bệnh trước khi lưu ảnh.'); return null; }
+  /** Always creates. Used by the picker's "+ Slide mới" entry, which is an
+   *  explicit request for a new slide — ensureSlide() below must NOT serve that
+   *  case, because its early return (a slide is already selected, and the effect
+   *  above auto-selects the first one) made choosing "+ Slide mới" a silent
+   *  no-op: no request, no slide, the select just snapped back. */
+  async function createSlide(): Promise<number | null> {
+    if (!selectedCaseId) { setError('Chọn ca bệnh trước khi tạo slide.'); return null; }
     try {
       const s = await api.addSlide(token, selectedCaseId as number);
-      setSlides((prev) => [...prev, { dbId: s.id, label: `Slide ${s.slide_number}`, imageCount: 0 }]);
+      setSlides((prev) => [...prev, {
+        dbId: s.id,
+        label: s.legacy_slide_label ?? `Slide ${s.slide_number}`,
+        imageCount: 0,
+      }]);
       setSelectedSlideId(s.id);
+      setError(null);
       onReload();
       return s.id;
     } catch (err) {
       setError(err instanceof api.ApiError ? err.message : 'Không thể tạo slide mới.');
       return null;
     }
+  }
+
+  /** "Make sure there is somewhere to put this image" — only creates when
+   *  nothing is selected. Used by the save path, not by the picker. */
+  async function ensureSlide(): Promise<number | null> {
+    if (selectedSlideId) return selectedSlideId as number;
+    if (!selectedCaseId) { setError('Chọn ca bệnh trước khi lưu ảnh.'); return null; }
+    return createSlide();
   }
 
   async function saveImage(file: File | Blob, source: 'upload' | 'live_capture') {
@@ -195,7 +212,7 @@ export function Upload({
               options={slideOptions}
               value={String(selectedSlideId)}
               disabled={!selectedCaseId}
-              onChange={(e) => { if (e.target.value === NEW_SLIDE_VALUE) ensureSlide(); else setSelectedSlideId(Number(e.target.value)); }}
+              onChange={(e) => { if (e.target.value === NEW_SLIDE_VALUE) createSlide(); else setSelectedSlideId(Number(e.target.value)); }}
             />
           </div>
           {currentCase && <Badge tone="neutral">{currentCase.id}</Badge>}

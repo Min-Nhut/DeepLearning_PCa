@@ -74,24 +74,32 @@ def get_stats(db: Session = Depends(get_db)) -> AdminStats:
 @router.get("/users", response_model=list[UserOut])
 def list_users(db: Session = Depends(get_db)) -> list[UserOut]:
     users = db.query(User).order_by(User.created_at.desc()).all()
-    out = []
-    for u in users:
-        run_count = db.query(func.count(InferenceRun.id)).filter(InferenceRun.triggered_by == u.id).scalar() or 0
-        last_activity = (
-            db.query(func.max(AuditLog.created_at)).filter(AuditLog.user_id == u.id).scalar()
+
+    # 2 grouped aggregate queries instead of 2 queries *per user* (was a real
+    # N+1 — harmless at this app's current ~4 accounts, but wasteful at scale).
+    run_counts = dict(
+        db.query(InferenceRun.triggered_by, func.count(InferenceRun.id))
+        .group_by(InferenceRun.triggered_by)
+        .all()
+    )
+    last_activities = dict(
+        db.query(AuditLog.user_id, func.max(AuditLog.created_at))
+        .group_by(AuditLog.user_id)
+        .all()
+    )
+
+    return [
+        UserOut(
+            id=u.id,
+            username=u.username,
+            full_name=u.full_name,
+            role=u.role,
+            is_active=bool(u.is_active),
+            run_count=run_counts.get(u.id, 0),
+            last_activity=last_activities.get(u.id),
         )
-        out.append(
-            UserOut(
-                id=u.id,
-                username=u.username,
-                full_name=u.full_name,
-                role=u.role,
-                is_active=bool(u.is_active),
-                run_count=run_count,
-                last_activity=last_activity,
-            )
-        )
-    return out
+        for u in users
+    ]
 
 
 @router.post("/users", response_model=UserOut, status_code=status.HTTP_201_CREATED)
@@ -186,25 +194,37 @@ def list_models() -> list[ModelInfo]:
 
 
 # --------------------------------------------------------------- library ----
+_LIBRARY_EXPORT_FIELDS = [
+    "case_id", "case_code", "case_year", "patient_age", "conclusion",
+    "is_anonymized", "source", "created_at",
+    "slide_id", "slide_label", "image_id", "image_number", "magnification", "description",
+    "primary_pattern", "secondary_pattern", "review_status",
+]
+
+
 @router.get("/library/export")
 def export_library(
     db: Session = Depends(get_db),
     format: str = Query("csv", pattern="^(csv|json)$"),
     scope: str = Query("all", pattern="^(all|reviewed)$"),
 ) -> StreamingResponse:
-    query = db.query(Case)
-    if scope == "reviewed":
-        query = (
-            query.join(Slide, Slide.case_id == Case.id)
-            .join(Image, Image.slide_id == Slide.id)
-            .join(DiagnosticReview, DiagnosticReview.image_id == Image.id)
-            .filter(DiagnosticReview.status == "confirmed")
-            .distinct()
-        )
-    cases = query.all()
+    """One row per image, matching the flat shape of the legacy desktop app's own
+    export (Debug/Export_*.xlsx: Ma So/Ma Nam/Ket Luan/Ten Slide/Do Phong Dai/Gleason)
+    instead of one row per case — plus the real structured Gleason pattern from
+    diagnostic_reviews where one exists, which the legacy export never had (it only
+    had a free-text description). A case with no slides/images yet still gets exactly
+    one row (slide/image fields blank) under scope=all so it isn't silently dropped."""
+    # Latest diagnostic review per image — same get-or-create-latest convention as
+    # reviews.py (diagnostic_reviews has no UNIQUE(image_id) constraint).
+    review_by_image: dict[int, DiagnosticReview] = {}
+    for r in db.query(DiagnosticReview).order_by(DiagnosticReview.created_at, DiagnosticReview.id):
+        review_by_image[r.image_id] = r
 
-    rows = [
-        {
+    cases = db.query(Case).order_by(Case.id).all()
+
+    rows: list[dict] = []
+    for c in cases:
+        case_fields = {
             "case_id": c.id,
             "case_code": c.case_code,
             "case_year": c.case_year,
@@ -215,8 +235,37 @@ def export_library(
             "source": c.source,
             "created_at": c.created_at,
         }
-        for c in cases
-    ]
+        slide_images = [
+            (slide, image)
+            for slide in sorted(c.slides, key=lambda s: s.slide_number)
+            for image in sorted(slide.images, key=lambda im: im.image_number)
+        ]
+        if not slide_images:
+            if scope == "reviewed":
+                continue  # nothing confirmed for a case with no images at all
+            rows.append({
+                **case_fields,
+                "slide_id": None, "slide_label": None, "image_id": None, "image_number": None,
+                "magnification": None, "description": None,
+                "primary_pattern": None, "secondary_pattern": None, "review_status": None,
+            })
+            continue
+        for slide, image in slide_images:
+            review = review_by_image.get(image.id)
+            if scope == "reviewed" and (review is None or review.status != "confirmed"):
+                continue
+            rows.append({
+                **case_fields,
+                "slide_id": slide.id,
+                "slide_label": slide.legacy_slide_label or f"Slide {slide.slide_number}",
+                "image_id": image.id,
+                "image_number": image.image_number,
+                "magnification": image.magnification,
+                "description": image.description,
+                "primary_pattern": review.primary_pattern if review else None,
+                "secondary_pattern": review.secondary_pattern if review else None,
+                "review_status": review.status if review else None,
+            })
 
     if format == "json":
         buf = io.StringIO(json.dumps(rows, ensure_ascii=False, indent=2))
@@ -224,11 +273,7 @@ def export_library(
         filename = "prostaai_library_export.json"
     else:
         buf = io.StringIO()
-        fieldnames = list(rows[0].keys()) if rows else [
-            "case_id", "case_code", "case_year", "patient_age", "conclusion",
-            "is_anonymized", "source", "created_at",
-        ]
-        writer = csv.DictWriter(buf, fieldnames=fieldnames)
+        writer = csv.DictWriter(buf, fieldnames=_LIBRARY_EXPORT_FIELDS)
         writer.writeheader()
         writer.writerows(rows)
         media_type = "text/csv"
@@ -380,7 +425,16 @@ def _open_legacy_sqlite(raw: bytes):
     try:
         conn = sqlite3.connect(f"file:{tmp_path}?mode=ro", uri=True)
         conn.row_factory = sqlite3.Row
-        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        try:
+            tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        except sqlite3.DatabaseError:
+            # Not a SQLite file at all (a spreadsheet, a corrupt copy). Without
+            # this the admin gets a 500 and no idea what went wrong — the
+            # missing-tables branch below only fires once the file opens.
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "File tải lên không phải database SQLite hợp lệ.",
+            )
         if not _LEGACY_TABLES.issubset(tables):
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,

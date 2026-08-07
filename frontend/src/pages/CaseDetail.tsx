@@ -7,6 +7,7 @@ import { GleasonChip } from '../components/pathology/GleasonChip';
 import { ImageThumb } from '../components/ImageThumb';
 import { Icon } from '../lib/icon';
 import * as api from '../lib/api';
+import { useApiData } from '../lib/useApiData';
 import type { Case } from '../types';
 
 const MAX_SLIDES = 12;
@@ -22,20 +23,67 @@ export function CaseDetail({ case: c, token, onBack, onEdit, onGoResult, onGoUpl
   onReload: () => void;
 }) {
   const [addingSlide, setAddingSlide] = useState(false);
+  const [slideError, setSlideError] = useState<string | null>(null);
+  const [busySlideId, setBusySlideId] = useState<number | null>(null);
   const [deletingImageId, setDeletingImageId] = useState<number | null>(null);
   const meta: [string, string | number][] = [['Mã số', c.maSo], ['Mã năm', c.maNam], ['Họ tên bệnh nhân', c.hoTen], ['Tuổi', c.tuoi]];
-  const hasAiResult = c.primary != null || c.gleason != null;
+  // Case-level Gleason (CAP protocol: 1 case can have up to 12 slides, but the
+  // signed report is per-case, not per-slide) — computed live across every
+  // confirmed diagnostic review in the case, see GET /api/cases/{id}/gleason.
+  const [caseGleasonState] = useApiData(
+    () => (c.dbId ? api.getCaseGleason(token, c.dbId) : Promise.resolve(null)),
+    [c.dbId],
+  );
+  const caseGleason = caseGleasonState.status === 'data' ? caseGleasonState.data : null;
 
   async function handleAddSlide() {
-    if (!c.dbId) return;
+    if (!c.dbId) {
+      setSlideError('Ca bệnh chưa được lưu nên chưa thêm được slide.');
+      return;
+    }
     setAddingSlide(true);
+    setSlideError(null);
     try {
       await api.addSlide(token, c.dbId);
       onReload();
-    } catch {
-      // best-effort — the slide list simply won't grow; the button stays clickable to retry
+    } catch (err) {
+      // This used to swallow the error entirely, so a failed request looked
+      // exactly like a button that does nothing — no message, no retry cue,
+      // nothing to report. Whatever went wrong (server down, 12-slide cap,
+      // expired session) is now stated on screen.
+      setSlideError(err instanceof api.ApiError ? err.message : 'Không thể thêm slide — kiểm tra kết nối tới máy chủ.');
     } finally {
       setAddingSlide(false);
+    }
+  }
+
+  async function handleMoveSlide(slideDbId: number, direction: 'up' | 'down') {
+    setBusySlideId(slideDbId);
+    setSlideError(null);
+    try {
+      await api.moveSlide(token, slideDbId, direction);
+      onReload();
+    } catch (err) {
+      setSlideError(err instanceof api.ApiError ? err.message : 'Không đổi được thứ tự slide.');
+    } finally {
+      setBusySlideId(null);
+    }
+  }
+
+  async function handleDeleteSlide(slideDbId: number, label: string, imageCount: number) {
+    const warning = imageCount > 0
+      ? `Xóa ${label}? ${imageCount} ảnh trong slide này cùng toàn bộ kết quả AI và vùng đánh dấu sẽ bị xóa.`
+      : `Xóa ${label}?`;
+    if (!window.confirm(warning)) return;
+    setBusySlideId(slideDbId);
+    setSlideError(null);
+    try {
+      await api.deleteSlide(token, slideDbId);
+      onReload();
+    } catch (err) {
+      setSlideError(err instanceof api.ApiError ? err.message : 'Xóa slide thất bại.');
+    } finally {
+      setBusySlideId(null);
     }
   }
 
@@ -66,16 +114,22 @@ export function CaseDetail({ case: c, token, onBack, onEdit, onGoResult, onGoUpl
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--blue-800)', marginBottom: 2 }}>{c.id}</div>
             <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, margin: 0, color: 'var(--text-strong)' }}>{c.hoTen}</h2>
           </div>
-          {hasAiResult ? (
+          {caseGleason && caseGleason.primary_pattern != null ? (
             <>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 2 }}>Điểm Gleason</div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, color: 'var(--brand)' }}>{c.primary ? `${c.primary}+${c.secondary}=${c.primary + (c.secondary || 0)}` : 'Lành tính'}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 2 }}>Điểm Gleason toàn ca</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, color: 'var(--brand)' }}>{`${caseGleason.primary_pattern}+${caseGleason.secondary_pattern}=${caseGleason.total_score}`}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{caseGleason.images_confirmed}/{caseGleason.images_total} ảnh đã xác nhận</div>
               </div>
-              <GleasonChip pattern={c.gleason || '3'} />
+              <GleasonChip pattern={String(caseGleason.primary_pattern)} />
             </>
+          ) : caseGleason && caseGleason.images_confirmed > 0 ? (
+            <div style={{ textAlign: 'right' }}>
+              <Badge tone="success">Toàn ca: Lành tính</Badge>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{caseGleason.images_confirmed}/{caseGleason.images_total} ảnh đã xác nhận</div>
+            </div>
           ) : (
-            <Badge tone="neutral">Chưa có kết quả AI</Badge>
+            <Badge tone="neutral">Chưa đủ dữ liệu (chưa có ảnh xác nhận)</Badge>
           )}
         </div>
         <div style={{ padding: '16px 22px', display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 18, borderBottom: '1px solid var(--border-subtle)' }}>
@@ -100,19 +154,39 @@ export function CaseDetail({ case: c, token, onBack, onEdit, onGoResult, onGoUpl
           </Button>
         </div>
       </div>
+      {slideError && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--white)', border: '1px solid var(--red-600)', color: 'var(--red-600)', fontSize: 13 }}>
+          <Icon name="alert-triangle" size={15} /> {slideError}
+        </div>
+      )}
       {c.slides.length === 0 && (
         <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', background: 'var(--white)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', fontSize: 13 }}>
           Chưa có slide nào. Bấm "Thêm slide mới" để bắt đầu.
         </div>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {c.slides.map((s) => (
+        {c.slides.map((s, i) => (
           <Card key={s.id} padding="none">
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px', borderBottom: '1px solid var(--border-subtle)' }}>
               <Icon name="layers-3" size={18} style={{ color: 'var(--blue-600)' }} />
               <span style={{ fontWeight: 600, color: 'var(--text-strong)' }}>{s.label}</span>
               <Badge tone="neutral">{s.images.length} ảnh</Badge>
               <div style={{ flex: 1 }} />
+              <IconButton
+                aria-label="Chuyển lên trên" title="Chuyển lên trên"
+                disabled={i === 0 || busySlideId != null || !s.dbId}
+                onClick={() => s.dbId && handleMoveSlide(s.dbId, 'up')}
+              ><Icon name="chevron-up" size={16} /></IconButton>
+              <IconButton
+                aria-label="Chuyển xuống dưới" title="Chuyển xuống dưới"
+                disabled={i === c.slides.length - 1 || busySlideId != null || !s.dbId}
+                onClick={() => s.dbId && handleMoveSlide(s.dbId, 'down')}
+              ><Icon name="chevron-down" size={16} /></IconButton>
+              <IconButton
+                aria-label="Xóa slide" title="Xóa slide"
+                disabled={busySlideId != null || !s.dbId}
+                onClick={() => s.dbId && handleDeleteSlide(s.dbId, s.label, s.images.length)}
+              ><Icon name="trash-2" size={16} style={{ color: 'var(--red-600)' }} /></IconButton>
               <Button variant="ghost" size="sm" iconLeft={<Icon name="camera" />} onClick={() => onGoUpload(s.dbId)}>Chụp / Thêm ảnh</Button>
             </div>
             <div style={{ display: 'flex', gap: 12, padding: 16, flexWrap: 'wrap' }}>

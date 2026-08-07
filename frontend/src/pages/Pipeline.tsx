@@ -5,7 +5,7 @@ import { Disclaimer } from '../components/Histology';
 import { StateMessage } from '../components/ui/StateMessage';
 import { Icon } from '../lib/icon';
 import * as api from '../lib/api';
-import type { ApiInferenceRun, ModelInfoApi } from '../types';
+import type { ApiInferenceRun, ApiPreprocessing, ModelInfoApi } from '../types';
 
 const POLL_MS = 2500;
 
@@ -43,6 +43,7 @@ export function Pipeline({ token, imageId, onDone, onBack }: {
   const [clfChoice, setClfChoice] = useState('');
   const [triggerBusy, setTriggerBusy] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
+  const [preprocessing, setPreprocessing] = useState<ApiPreprocessing | null>(null);
   const pollTimer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   function stopPolling() {
@@ -69,12 +70,14 @@ export function Pipeline({ token, imageId, onDone, onBack }: {
     setInitError(null);
     (async () => {
       try {
-        const [existing, modelList] = await Promise.all([
+        const [existing, modelList, preproc] = await Promise.all([
           api.getInference(token, imageId),
           api.getAvailableModels(token),
+          api.getPreprocessing(token, imageId).catch(() => null),
         ]);
         if (cancelled) return;
         setModels(modelList);
+        setPreprocessing(preproc);
         if (existing) {
           setRun(existing);
           setMode('progress');
@@ -175,6 +178,14 @@ export function Pipeline({ token, imageId, onDone, onBack }: {
           </div>
           {(segOptions.length === 0 || clfOptions.length === 0) && (
             <div style={{ fontSize: 12, color: 'var(--danger)' }}>Chưa có checkpoint khả dụng cho một trong hai tác vụ — không thể chạy phân tích.</div>
+          )}
+          {preprocessing?.is_blurry && (
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: 12, background: 'var(--warning-soft)', borderRadius: 'var(--radius-md)', fontSize: 12, color: 'var(--warning)' }}>
+              <Icon name="triangle-alert" size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+              <span>
+                Ảnh này được đánh giá là mờ (điểm chất lượng {preprocessing.quality_score?.toFixed(0) ?? '—'}) — kết quả AI có thể không đáng tin cậy. Vẫn có thể chạy phân tích, nhưng nên cân nhắc chụp/tải lại ảnh rõ hơn.
+              </span>
+            </div>
           )}
           {initError && <div style={{ fontSize: 12, color: 'var(--danger)' }}>{initError}</div>}
           <Button variant="accent" iconRight={<Icon name="arrow-right" />} disabled={!canStart} onClick={handleStart}>

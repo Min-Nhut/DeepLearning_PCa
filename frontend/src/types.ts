@@ -162,6 +162,15 @@ export interface ApiImage {
   created_at: string;
 }
 
+export interface ApiPreprocessing {
+  image_id: number;
+  is_blurry: boolean;
+  quality_score: number | null;
+  has_normalized_image: boolean;
+  has_tissue_mask: boolean;
+  processed_at: string;
+}
+
 export interface ApiSlide {
   id: number;
   case_id: number;
@@ -223,6 +232,17 @@ export interface ApiClassificationResult {
   created_at: string;
 }
 
+// Stage 3 — WSI-level ML fusion (MLPClassifier trained on 8 classification-only
+// features from densenet121+efficientnet_b0, predicts ISUP grade 0-5 directly).
+export interface ApiStage3Result {
+  id: number;
+  run_id: number;
+  isup_grade: 0 | 1 | 2 | 3 | 4 | 5 | null;
+  confidence: number | null;
+  classification_pct: Record<string, Record<string, number>> | null;
+  created_at: string;
+}
+
 export type InferenceStatus = 'pending' | 'running' | 'completed' | 'failed';
 
 export interface ApiInferenceRun {
@@ -238,6 +258,7 @@ export interface ApiInferenceRun {
   created_at: string;
   segmentation: ApiSegmentationResult | null;
   classification: ApiClassificationResult | null;
+  stage3: ApiStage3Result | null;
 }
 
 export interface InferenceTriggerRequest {
@@ -261,6 +282,9 @@ export interface ApiDiagnosticReview {
   lvi_present: boolean;
   lvi_notes: string | null;
   free_notes: string | null;
+  tumor_length_mm: number | null;
+  needs_second_opinion: boolean;
+  second_opinion_notes: string | null;
   status: 'draft' | 'confirmed';
   reviewed_by: number | null;
   confirmed_at: string | null;
@@ -277,4 +301,59 @@ export interface DiagnosticReviewUpdate {
   lvi_present?: boolean | null;
   lvi_notes?: string | null;
   free_notes?: string | null;
+  tumor_length_mm?: number | null;
+  needs_second_opinion?: boolean | null;
+  second_opinion_notes?: string | null;
+  cancer_area_percentage?: number | null;
+}
+
+export interface FlaggedReview {
+  review_id: number;
+  image_id: number;
+  case_id: number;
+  case_label: string;
+  slide_label: string;
+  second_opinion_notes: string | null;
+  created_at: string;
+}
+
+export interface Calibration {
+  magnification: '4x' | '10x' | '20x' | '40x';
+  um_per_pixel: number;
+  updated_at: string;
+}
+
+// ---------- doctor dashboard stats (backend/app/schemas/stats.py) ----------
+export interface PatternCount {
+  label: string;
+  pattern: 3 | 4 | 5 | null;
+  count: number;
+  percentage: number;
+}
+
+export interface DoctorStats {
+  new_cases_today: number;
+  pending_reviews: number;
+  confirmed_reviews: number;
+  avg_ai_confidence: number | null;
+  pattern_distribution: PatternCount[];
+}
+
+// ---------- case-level Gleason aggregation (backend/app/schemas/cases.py) ----------
+export interface CaseGleasonPerImage {
+  image_id: number;
+  primary_pattern: 3 | 4 | 5 | null;
+  secondary_pattern: 3 | 4 | 5 | null;
+  cancer_area_percentage: number | null;
+}
+
+export interface CaseGleason {
+  case_id: number;
+  primary_pattern: 3 | 4 | 5 | null;
+  secondary_pattern: 3 | 4 | 5 | null;
+  total_score: number | null;
+  grade_group: number | null;
+  images_confirmed: number;
+  images_total: number;
+  per_image: CaseGleasonPerImage[];
 }

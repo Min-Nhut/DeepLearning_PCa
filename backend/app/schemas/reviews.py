@@ -20,6 +20,9 @@ class DiagnosticReviewOut(BaseModel):
     lvi_present: bool
     lvi_notes: str | None
     free_notes: str | None
+    tumor_length_mm: float | None
+    needs_second_opinion: bool
+    second_opinion_notes: str | None
     status: str
     reviewed_by: int | None
     confirmed_at: str | None
@@ -36,3 +39,17 @@ class DiagnosticReviewUpdate(BaseModel):
     lvi_present: bool | None = None
     lvi_notes: str | None = None
     free_notes: str | None = None
+    tumor_length_mm: float | None = None
+    needs_second_opinion: bool | None = None
+    second_opinion_notes: str | None = None
+    cancer_area_percentage: float | None = None
+
+
+class FlaggedReviewOut(BaseModel):
+    review_id: int
+    image_id: int
+    case_id: int
+    case_label: str
+    slide_label: str
+    second_opinion_notes: str | None
+    created_at: str

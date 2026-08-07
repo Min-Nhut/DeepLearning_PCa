@@ -10,7 +10,7 @@ import numpy as np
 import torch
 
 from ..routers.reviews import _grade_group
-from . import registry
+from . import fusion, registry
 from .tiling import PATCH_SIZE, tile_image
 
 IMAGENET_MEAN = np.array((0.485, 0.456, 0.406), dtype=np.float32)
@@ -81,7 +81,25 @@ def _classify_patch(model: torch.nn.Module, patch_bgr: np.ndarray) -> tuple[int,
     return idx, float(probs[idx].item())
 
 
-def run_pipeline(image_path: Path, seg_arch: str, clf_arch: str, output_dir: Path, stem: str) -> PipelineResult:
+def _classify_patch_probs(model: torch.nn.Module, patch_bgr: np.ndarray) -> np.ndarray:
+    """Full 4-class softmax (not just the argmax winner) — used by Stage 3
+    fusion, which needs the average probability distribution across every
+    tissue patch, not a per-patch hard decision."""
+    rgb = cv2.cvtColor(patch_bgr, cv2.COLOR_BGR2RGB)
+    tensor = _to_tensor(rgb, CLF_INPUT_SIZE)
+    with torch.no_grad():
+        logits = model(tensor)
+    return torch.softmax(logits, dim=1).squeeze(0).numpy()
+
+
+def run_pipeline(
+    image_path: Path,
+    seg_arch: str,
+    clf_arch: str,
+    output_dir: Path,
+    stem: str,
+    um_per_pixel: float | None = None,
+) -> PipelineResult:
     """Blocking — FastAPI's BackgroundTasks runs sync callables in a
     threadpool automatically, so this doesn't need an explicit
     run_in_threadpool wrapper at the call site."""
@@ -94,7 +112,7 @@ def run_pipeline(image_path: Path, seg_arch: str, clf_arch: str, output_dir: Pat
     h, w = bgr.shape[:2]
     full_mask = np.zeros((h, w), dtype=np.uint8)
 
-    patches = tile_image(image_path, patch_size=PATCH_SIZE, tissue_only=True)
+    patches = tile_image(image_path, patch_size=PATCH_SIZE, tissue_only=True, um_per_pixel=um_per_pixel)
 
     # Per-pattern classified area (in px) across all patches — drives the
     # primary/secondary aggregation below.
@@ -103,11 +121,17 @@ def run_pipeline(image_path: Path, seg_arch: str, clf_arch: str, output_dir: Pat
     pattern_patch_count: dict[int, int] = {3: 0, 4: 0, 5: 0}
 
     for patch in patches:
-        ph, pw = patch.image.shape[:2]
         pred = _segment_patch(seg_model, patch.image)
-        full_mask[patch.y:patch.y + ph, patch.x:patch.x + pw] = pred
+        # Only the region this patch owns (see tiling.Patch.w_valid): trims the
+        # band it shares with an inward-shifted neighbour, and trims the
+        # edge-replicated padding on a source image smaller than a patch — which
+        # otherwise raised "could not broadcast (500,500) into (120,193)" and
+        # failed the whole run on every legacy desktop capture.
+        ph, pw = patch.h_valid, patch.w_valid
+        owned = pred[:ph, :pw]
+        full_mask[patch.y:patch.y + ph, patch.x:patch.x + pw] = owned
 
-        has_cancer_pixels = np.isin(pred, CANCER_CLASSES).any()
+        has_cancer_pixels = np.isin(owned, CANCER_CLASSES).any()
         if not has_cancer_pixels:
             continue
 
@@ -121,8 +145,12 @@ def run_pipeline(image_path: Path, seg_arch: str, clf_arch: str, output_dir: Pat
         # "area" contributed to that pattern uses segmentation's pixel count
         # for that specific class within the patch — combines the patch's
         # classification decision with segmentation's finer spatial extent,
-        # rather than crediting the whole patch to one label.
-        patch_area = int(np.count_nonzero(pred == pattern))
+        # rather than crediting the whole patch to one label. Counted over the
+        # owned region only, so these totals sum to exactly what full_mask
+        # holds; counting the full patch double-counted every shared band
+        # (+7.4% on a real 6144x26112 slide) and biased primary/secondary
+        # towards whichever pattern sat along the right/bottom edge.
+        patch_area = int(np.count_nonzero(owned == pattern))
         pattern_area[pattern] += patch_area
         pattern_confidence_sum[pattern] += confidence * patch_area
         pattern_patch_count[pattern] += 1
@@ -164,3 +192,37 @@ def run_pipeline(image_path: Path, seg_arch: str, clf_arch: str, output_dir: Pat
         secondary_confidence=secondary_confidence,
         grade_group=grade_group,
     )
+
+
+# Class order fixed by CLF_IDX_TO_PATTERN above (0=benign,1=g3,2=g4,3=g5) — also
+# exactly the order stage3_metadata.json's feature_columns uses per model.
+STAGE3_CLASSES = ("benign", "gleason_3", "gleason_4", "gleason_5")
+STAGE3_CLF_ARCHITECTURES = ("densenet121", "efficientnet_b0")  # fixed by the trained model
+
+
+def run_stage3_fusion(
+    image_path: Path, um_per_pixel: float | None = None
+) -> tuple[int, float, dict[str, dict[str, float]]]:
+    """Stage 3 — WSI-level ML fusion (see fusion.py). Deliberately independent
+    of run_pipeline()'s own classification pass: that one only classifies
+    patches segmentation already flagged as cancer-relevant (an optimization
+    confirmed earlier in this project), but Stage 3 was trained on
+    classification run as its own independent branch over *every* tissue
+    patch — reusing the gated result here would silently starve the "benign"
+    feature (patches segmentation didn't flag never get classified) and feed
+    the fusion model data that doesn't match what it was trained on."""
+    patches = tile_image(image_path, patch_size=PATCH_SIZE, tissue_only=True, um_per_pixel=um_per_pixel)
+    if not patches:
+        raise ValueError("no tissue patches found for Stage 3 fusion")
+
+    classification_pct: dict[str, dict[str, float]] = {}
+    for arch in STAGE3_CLF_ARCHITECTURES:
+        model = registry.load("classification", arch)
+        total = np.zeros(len(STAGE3_CLASSES), dtype=np.float64)
+        for patch in patches:
+            total += _classify_patch_probs(model, patch.image)
+        avg_pct = (total / len(patches)) * 100.0
+        classification_pct[arch] = dict(zip(STAGE3_CLASSES, (float(v) for v in avg_pct)))
+
+    isup_grade, confidence = fusion.predict_isup(classification_pct)
+    return isup_grade, confidence, classification_pct

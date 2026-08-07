@@ -50,7 +50,13 @@ class Case(Base):
     created_at: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("(datetime('now'))"))
     updated_at: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("(datetime('now'))"))
 
-    slides: Mapped[list["Slide"]] = relationship(back_populates="case", cascade="all, delete-orphan")
+    # Ordered explicitly: without this SQLite returns whatever physical order it
+    # likes, which is not even stable across UPDATEs — so the slide reorder
+    # feature (POST /api/cases/slides/{id}/move) would have had no visible
+    # effect, or a random one. Caught by tests/test_slide_management.py.
+    slides: Mapped[list["Slide"]] = relationship(
+        back_populates="case", cascade="all, delete-orphan", order_by="Slide.slide_number",
+    )
 
 
 class Slide(Base):
@@ -64,7 +70,9 @@ class Slide(Base):
     created_at: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("(datetime('now'))"))
 
     case: Mapped[Case] = relationship(back_populates="slides")
-    images: Mapped[list["Image"]] = relationship(back_populates="slide", cascade="all, delete-orphan")
+    images: Mapped[list["Image"]] = relationship(
+        back_populates="slide", cascade="all, delete-orphan", order_by="Image.image_number",
+    )
 
 
 class Image(Base):
@@ -172,6 +180,9 @@ class DiagnosticReview(Base):
     lvi_present: Mapped[int] = mapped_column(Integer, server_default="0")
     lvi_notes: Mapped[str | None] = mapped_column(Text)
     free_notes: Mapped[str | None] = mapped_column(Text)
+    tumor_length_mm: Mapped[float | None] = mapped_column()
+    needs_second_opinion: Mapped[int] = mapped_column(Integer, server_default="0")
+    second_opinion_notes: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default="draft")
     reviewed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     confirmed_at: Mapped[str | None] = mapped_column(Text)
@@ -212,4 +223,26 @@ class AuditLog(Base):
     entity_type: Mapped[str] = mapped_column(Text, nullable=False)
     entity_id: Mapped[int | None] = mapped_column(Integer)
     details: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("(datetime('now'))"))
+
+
+class MagnificationCalibration(Base):
+    __tablename__ = "magnification_calibration"
+    __table_args__ = (CheckConstraint("magnification IN ('4x','10x','20x','40x')"),)
+
+    magnification: Mapped[str] = mapped_column(Text, primary_key=True)
+    um_per_pixel: Mapped[float] = mapped_column(nullable=False)
+    updated_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    updated_at: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("(datetime('now'))"))
+
+
+class Stage3Result(Base):
+    __tablename__ = "stage3_results"
+    __table_args__ = (CheckConstraint("isup_grade BETWEEN 0 AND 5"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("inference_runs.id", ondelete="CASCADE"), nullable=False, unique=True)
+    isup_grade: Mapped[int | None] = mapped_column(Integer)
+    confidence: Mapped[float | None] = mapped_column()
+    classification_pct_json: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("(datetime('now'))"))

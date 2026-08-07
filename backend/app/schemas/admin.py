@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 # ---------- stats ----------
@@ -24,7 +24,10 @@ class UserOut(BaseModel):
 
 class UserCreate(BaseModel):
     username: str
-    password: str
+    # min_length=8 — no strength check existed before at all (an admin could
+    # create a 1-character password). Only applies to newly-created accounts;
+    # does not retroactively touch existing bootstrap accounts.
+    password: str = Field(min_length=8)
     full_name: str | None = None
     role: str = "user"
 

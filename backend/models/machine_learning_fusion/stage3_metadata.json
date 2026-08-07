@@ -1,0 +1,38 @@
+{
+  "classifier_name": "MLP",
+  "feature_set_name": "clf_combined",
+  "feature_columns": [
+    "clf_densenet121_benign_pct",
+    "clf_densenet121_gleason_3_pct",
+    "clf_densenet121_gleason_4_pct",
+    "clf_densenet121_gleason_5_pct",
+    "clf_efficientnet_b0_benign_pct",
+    "clf_efficientnet_b0_gleason_3_pct",
+    "clf_efficientnet_b0_gleason_4_pct",
+    "clf_efficientnet_b0_gleason_5_pct"
+  ],
+  "isup_classes": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "classification_models_used": [
+    "densenet121",
+    "efficientnet_b0"
+  ],
+  "segmentation_models_used": [
+    "unet_densenet121",
+    "unet_efficientnet_b0"
+  ],
+  "cv_qwk_oof": 0.9645690541254635,
+  "cv_qwk_fold_mean": 0.9646183419509903,
+  "cv_qwk_fold_std": 0.011475506494403636,
+  "n_training_cases": 634,
+  "trained_on_splits": [
+    "val",
+    "test"
+  ]
+}

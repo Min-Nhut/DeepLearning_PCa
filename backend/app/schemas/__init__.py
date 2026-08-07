@@ -18,13 +18,16 @@ from .admin import (
 )
 from .annotations import AnnotationCreate, AnnotationOut, AnnotationUpdate, Point
 from .auth import LoginRequest, LoginResponse, MeResponse
+from .calibration import CalibrationOut, CalibrationUpdate
 from .cases import (
     CaseCreate,
+    CaseGleasonOut,
     CaseOut,
     CaseUpdate,
     ImageOut,
     PreprocessingOut,
     SlideCreate,
+    SlideMove,
     SlideOut,
 )
 from .inference import (
@@ -32,8 +35,10 @@ from .inference import (
     InferenceRunOut,
     InferenceTriggerRequest,
     SegmentationResultOut,
+    Stage3ResultOut,
 )
-from .reviews import DiagnosticReviewOut, DiagnosticReviewUpdate
+from .reviews import DiagnosticReviewOut, DiagnosticReviewUpdate, FlaggedReviewOut
+from .stats import DoctorStats, PatternCount
 
 __all__ = [
     "AdminStats",
@@ -55,17 +60,25 @@ __all__ = [
     "LoginRequest",
     "LoginResponse",
     "MeResponse",
+    "CalibrationOut",
+    "CalibrationUpdate",
     "CaseCreate",
+    "CaseGleasonOut",
     "CaseOut",
     "CaseUpdate",
     "ImageOut",
     "PreprocessingOut",
     "SlideCreate",
+    "SlideMove",
     "SlideOut",
     "ClassificationResultOut",
     "InferenceRunOut",
     "InferenceTriggerRequest",
     "SegmentationResultOut",
+    "Stage3ResultOut",
     "DiagnosticReviewOut",
     "DiagnosticReviewUpdate",
+    "FlaggedReviewOut",
+    "DoctorStats",
+    "PatternCount",
 ]

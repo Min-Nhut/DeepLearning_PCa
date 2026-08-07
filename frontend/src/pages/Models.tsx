@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -6,6 +7,72 @@ import { Disclaimer } from '../components/Histology';
 import { Icon } from '../lib/icon';
 import * as api from '../lib/api';
 import { useApiData } from '../lib/useApiData';
+
+const MAGNIFICATIONS = ['4x', '10x', '20x', '40x'] as const;
+
+function CalibrationSection({ token }: { token: string }) {
+  const [calibration, reload] = useApiData(() => api.getCalibration(token), [token]);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const byMag = calibration.status === 'data'
+    ? Object.fromEntries(calibration.data.map((c) => [c.magnification, c]))
+    : {};
+
+  async function handleSave(mag: string) {
+    const raw = drafts[mag];
+    const value = raw != null ? parseFloat(raw) : NaN;
+    if (!value || value <= 0) {
+      setError('Nhập một số µm/pixel hợp lệ (> 0).');
+      return;
+    }
+    setSaving(mag);
+    setError(null);
+    try {
+      await api.setCalibration(token, mag, value);
+      setDrafts((d) => { const next = { ...d }; delete next[mag]; return next; });
+      reload();
+    } catch (err) {
+      setError(err instanceof api.ApiError ? err.message : 'Lưu hiệu chỉnh thất bại.');
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  return (
+    <Card>
+      <h3 style={{ fontSize: 'var(--text-lg)', margin: '0 0 4px', fontFamily: 'var(--font-display)' }}>Hiệu chỉnh độ phóng đại (µm/pixel)</h3>
+      <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 16px' }}>
+        Dùng cho công cụ đo khoảng cách trong Trình xem tiêu bản — đo bằng thước hiệu chuẩn
+        thật (stage micrometer) trên kính hiển vi ở từng độ phóng đại, rồi nhập số µm ứng
+        với 1 pixel tại đây. Bỏ trống nghĩa là "chưa hiệu chỉnh" cho độ phóng đại đó.
+      </p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14 }}>
+        {MAGNIFICATIONS.map((mag) => {
+          const existing = byMag[mag];
+          const draft = drafts[mag];
+          return (
+            <div key={mag} style={{ border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '12px 14px' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-strong)', marginBottom: 8 }}>{mag}</div>
+              <input
+                type="number" step="0.0001" min="0"
+                placeholder={existing ? String(existing.um_per_pixel) : 'Chưa hiệu chỉnh'}
+                value={draft ?? ''}
+                onChange={(e) => setDrafts((d) => ({ ...d, [mag]: e.target.value }))}
+                style={{ width: '100%', boxSizing: 'border-box', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)', padding: '6px 8px', fontSize: 13, fontFamily: 'var(--font-mono)', marginBottom: 8 }}
+              />
+              <Button variant="secondary" size="sm" fullWidth disabled={saving === mag || draft == null || draft === ''} onClick={() => handleSave(mag)}>
+                {saving === mag ? 'Đang lưu…' : 'Lưu'}
+              </Button>
+            </div>
+          );
+        })}
+      </div>
+      {error && <div style={{ fontSize: 12, color: 'var(--danger)', marginTop: 10 }}>{error}</div>}
+    </Card>
+  );
+}
 
 export function Models({ token }: { token: string }) {
   const [models] = useApiData(() => api.getModels(token), [token]);
@@ -55,6 +122,7 @@ export function Models({ token }: { token: string }) {
           </Card>
         ))}
       </div>
+      <div style={{ marginTop: 18 }}><CalibrationSection token={token} /></div>
       <div style={{ marginTop: 18 }}><Disclaimer /></div>
     </div>
   );

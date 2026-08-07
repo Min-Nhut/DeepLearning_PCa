@@ -26,6 +26,15 @@ class ClassificationResultOut(BaseModel):
     created_at: str
 
 
+class Stage3ResultOut(BaseModel):
+    id: int
+    run_id: int
+    isup_grade: int | None
+    confidence: float | None
+    classification_pct: dict[str, dict[str, float]] | None
+    created_at: str
+
+
 class InferenceRunOut(BaseModel):
     id: int
     image_id: int
@@ -39,3 +48,4 @@ class InferenceRunOut(BaseModel):
     created_at: str
     segmentation: SegmentationResultOut | None = None
     classification: ClassificationResultOut | None = None
+    stage3: Stage3ResultOut | None = None

@@ -38,7 +38,7 @@ export function Library({ token }: { token: string }) {
           </div>
           <div>
             <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, margin: 0, color: 'var(--text-strong)' }}>Xuất thư viện dữ liệu</h2>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Đóng gói thông tin ca bệnh (ẩn danh) phục vụ huấn luyện / đánh giá model</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Đóng gói thông tin ca bệnh → slide → ảnh (ẩn danh) phục vụ huấn luyện / đánh giá model — mỗi dòng là 1 ảnh, kèm độ phóng đại và Gleason (nếu đã có đánh giá)</div>
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>

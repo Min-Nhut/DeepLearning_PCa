@@ -8,10 +8,23 @@ python-multipart==0.0.20
 pillow==11.1.0
 opencv-python-headless==4.11.0.86
 numpy==2.2.1
+pyvips==3.1.1
+pyvips-binary==8.18.4
 
 # AI inference — CPU-only wheels (no GPU on this dev/demo machine, confirmed
 # with the user). Install with:
 #   pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.7.1
 torchvision==0.22.1
-segmentation-models-pytorch==0.3.4
+segmentation-models-pytorch==0.5.0
+
+# Stage 3 ML-fusion (WSI-level ISUP grade) — pinned to the version the
+# stage3_final_model.joblib/stage3_final_scaler.joblib were actually pickled
+# with (1.6.1), to avoid any prediction drift from a newer sklearn.
+scikit-learn==1.6.1
+joblib==1.5.3
+
+# Testing — see docs/TEST_PLAN.md. httpx is what fastapi.testclient.TestClient
+# runs on; neither is imported by the app itself.
+pytest==8.4.2
+httpx==0.28.1

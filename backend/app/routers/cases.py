@@ -1,4 +1,6 @@
 import io
+import logging
+import shutil
 import uuid
 from pathlib import Path
 from typing import Literal
@@ -14,17 +16,23 @@ from sqlalchemy.orm import Session, selectinload
 from ..audit import write_audit_log
 from ..database import get_db
 from ..deps import get_current_user
-from ..models import Case, Image, PreprocessingResult, Slide, User
+from ..models import Case, DiagnosticReview, Image, PreprocessingResult, Slide, User
 from ..preprocessing import run_preprocessing
 from ..schemas import (
     CaseCreate,
+    CaseGleasonOut,
     CaseOut,
     CaseUpdate,
     ImageOut,
     PreprocessingOut,
     SlideCreate,
+    SlideMove,
     SlideOut,
 )
+from ..schemas.cases import CaseGleasonPerImage
+from .reviews import _grade_group
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/cases", tags=["cases"], dependencies=[Depends(get_current_user)])
 image_router = APIRouter(prefix="/api/images", tags=["cases"], dependencies=[Depends(get_current_user)])
@@ -104,6 +112,89 @@ def get_case(case_id: int, db: Session = Depends(get_db)) -> Case:
     if case is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy ca bệnh")
     return case
+
+
+@router.get("/{case_id}/gleason", response_model=CaseGleasonOut)
+def get_case_gleason(case_id: int, db: Session = Depends(get_db)) -> CaseGleasonOut:
+    """Case-level Gleason/ISUP aggregation across every slide/image in the case
+    (CAP protocol: a real biopsy report is signed per-case, not per-slide) —
+    computed live from confirmed diagnostic_reviews, not persisted, same
+    pattern as GET /api/stats/doctor. Only status='confirmed' reviews count
+    (a draft could still change) — see CLAUDE.md for the full reasoning."""
+    if db.get(Case, case_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy ca bệnh")
+
+    images_total = (
+        db.query(func.count(Image.id))
+        .join(Slide, Image.slide_id == Slide.id)
+        .filter(Slide.case_id == case_id)
+        .scalar() or 0
+    )
+
+    rows = (
+        db.query(DiagnosticReview, Image)
+        .join(Image, DiagnosticReview.image_id == Image.id)
+        .join(Slide, Image.slide_id == Slide.id)
+        .filter(Slide.case_id == case_id, DiagnosticReview.status == "confirmed")
+        .all()
+    )
+
+    per_image = [
+        CaseGleasonPerImage(
+            image_id=image.id,
+            primary_pattern=review.primary_pattern,
+            secondary_pattern=review.secondary_pattern,
+            cancer_area_percentage=review.cancer_area_percentage,
+        )
+        for review, image in rows
+    ]
+
+    if not per_image:
+        return CaseGleasonOut(
+            case_id=case_id, primary_pattern=None, secondary_pattern=None,
+            total_score=None, grade_group=None,
+            images_confirmed=0, images_total=images_total, per_image=[],
+        )
+
+    # Primary = the pattern with the greatest cumulative extent across the whole
+    # case — each confirmed image's own primary_pattern already represents that
+    # image's dominant pattern (see pipeline.py's own aggregation), so its
+    # cancer_area_percentage is used as that pattern's weight for this image.
+    pattern_weight: dict[int, float] = {3: 0.0, 4: 0.0, 5: 0.0}
+    patterns_present: set[int] = set()
+    for p in per_image:
+        if p.primary_pattern in (3, 4, 5):
+            pattern_weight[p.primary_pattern] += p.cancer_area_percentage or 0.0
+            patterns_present.add(p.primary_pattern)
+        if p.secondary_pattern in (3, 4, 5):
+            patterns_present.add(p.secondary_pattern)
+
+    if not patterns_present:
+        # Every confirmed image in the case was benign — a real, honest result,
+        # not "not enough data".
+        return CaseGleasonOut(
+            case_id=case_id, primary_pattern=None, secondary_pattern=None,
+            total_score=None, grade_group=None,
+            images_confirmed=len(per_image), images_total=images_total, per_image=per_image,
+        )
+
+    primary_pattern = max(pattern_weight, key=lambda p: pattern_weight[p])
+    # Secondary = the highest-grade pattern present anywhere in the case other
+    # than the chosen primary; falls back to the primary itself if it's the
+    # only pattern present (single-pattern convention, matches pipeline.py).
+    other_patterns = [p for p in patterns_present if p != primary_pattern]
+    secondary_pattern = max(other_patterns) if other_patterns else primary_pattern
+
+    return CaseGleasonOut(
+        case_id=case_id,
+        primary_pattern=primary_pattern,
+        secondary_pattern=secondary_pattern,
+        total_score=primary_pattern + secondary_pattern,
+        grade_group=_grade_group(primary_pattern, secondary_pattern),
+        images_confirmed=len(per_image),
+        images_total=images_total,
+        per_image=per_image,
+    )
 
 
 @router.patch("/{case_id}", response_model=CaseOut)
@@ -208,6 +299,104 @@ def _process_and_store(raw: bytes, dest_dir: Path, stem: str) -> tuple[str, int,
     return ext, width, height
 
 
+def _delete_image_files(image: Image) -> None:
+    """Every derivative (thumb/view/normalized/tissue-mask) and every
+    inference-run output for one image shares its UUID stem as a filename
+    prefix, so one glob catches all of them. The deep-zoom pyramid writes a
+    *directory* ({stem}_dzi_files/), hence rmtree vs unlink. DB rows cascade on
+    their own; files on disk do not."""
+    original_path = UPLOAD_ROOT.parent / image.file_path
+    for f in original_path.parent.glob(f"{original_path.stem}*"):
+        if f.is_dir():
+            shutil.rmtree(f, ignore_errors=True)
+        else:
+            f.unlink(missing_ok=True)
+
+
+@router.delete("/slides/{slide_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_slide(
+    slide_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> None:
+    """Removes the slide and everything under it. No per-doctor ownership check,
+    matching the flat role model used everywhere else. Slide numbers are left
+    with a gap rather than renumbered — add_slide() takes max+1 so a gap is
+    harmless, and renumbering would silently change the label of slides the
+    doctor didn't touch."""
+    slide = db.get(Slide, slide_id)
+    if slide is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy slide")
+
+    slide_dirs = set()
+    for image in list(slide.images):
+        _delete_image_files(image)
+        slide_dirs.add((UPLOAD_ROOT.parent / image.file_path).parent)
+    # The slide's own upload directory is dead once its images are gone — unlike
+    # delete_image, which must leave the directory alone for the slide's other
+    # images. Only removed when actually empty, so an unexpected leftover file
+    # is preserved rather than silently destroyed.
+    for d in slide_dirs:
+        if d.is_dir() and not any(d.iterdir()):
+            d.rmdir()
+
+    write_audit_log(
+        db, user, "delete_slide", "slide", slide.id,
+        details=f"case_id={slide.case_id}, images={len(slide.images)}",
+    )
+    db.delete(slide)
+    db.commit()
+
+
+@router.post("/slides/{slide_id}/move", response_model=SlideOut)
+def move_slide(
+    slide_id: int,
+    payload: SlideMove,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> Slide:
+    """Swaps this slide's position with its neighbour. `slides` has
+    UNIQUE(case_id, slide_number), so the swap goes through a temporary
+    out-of-range number instead of assigning the neighbour's value directly,
+    which would collide mid-statement.
+
+    Only the position moves — `legacy_slide_label` stays with its own slide,
+    because that label names a real piece of glass ("Slide 3-4"); reordering the
+    list must not rename it."""
+    slide = db.get(Slide, slide_id)
+    if slide is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy slide")
+
+    neighbours = (
+        db.query(Slide)
+        .filter(Slide.case_id == slide.case_id)
+        .filter(Slide.slide_number < slide.slide_number if payload.direction == "up"
+                else Slide.slide_number > slide.slide_number)
+        .order_by(Slide.slide_number.desc() if payload.direction == "up" else Slide.slide_number.asc())
+        .first()
+    )
+    if neighbours is None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Slide đã ở đầu danh sách" if payload.direction == "up" else "Slide đã ở cuối danh sách",
+        )
+
+    mine, theirs = slide.slide_number, neighbours.slide_number
+    slide.slide_number = -slide.id  # temporary, dodges UNIQUE(case_id, slide_number)
+    db.flush()
+    neighbours.slide_number = mine
+    db.flush()
+    slide.slide_number = theirs
+
+    write_audit_log(
+        db, user, "move_slide", "slide", slide.id,
+        details=f"case_id={slide.case_id}, {mine}->{theirs}",
+    )
+    db.commit()
+    db.refresh(slide)
+    return slide
+
+
 def _derivative_path(original_rel_path: str, size: Literal["thumb", "view"]) -> Path:
     original = UPLOAD_ROOT.parent / original_rel_path
     return original.with_name(f"{original.stem}_{size}.jpg")
@@ -287,11 +476,19 @@ async def upload_image(
             )
         )
     except Exception:
-        pass
+        logger.exception("Preprocessing failed for image_id=%s (upload itself still succeeded)", image.id)
 
     write_audit_log(db, user, "upload_image", "image", image.id, details=f"slide_id={slide_id}, source={source}")
     db.commit()
     db.refresh(image)
+    return image
+
+
+@image_router.get("/{image_id}", response_model=ImageOut)
+def get_image(image_id: int, db: Session = Depends(get_db)) -> Image:
+    image = db.get(Image, image_id)
+    if image is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy ảnh")
     return image
 
 
@@ -326,10 +523,17 @@ def delete_image(
     # the stem catches all of them without touching other images in the same
     # slide directory. DB rows cascade automatically (ON DELETE CASCADE +
     # PRAGMA foreign_keys=ON), but files on disk don't, so this must be explicit.
+    # Every derivative/tile shares the UUID stem as a filename prefix — but the
+    # deep-zoom tile pyramid (see app/dzi.py) writes a *directory*
+    # ({stem}_dzi_files/), not just files, so a plain unlink() would raise
+    # IsADirectoryError on it.
     original_path = UPLOAD_ROOT.parent / image.file_path
     stem = original_path.stem
     for f in original_path.parent.glob(f"{stem}*"):
-        f.unlink(missing_ok=True)
+        if f.is_dir():
+            shutil.rmtree(f, ignore_errors=True)
+        else:
+            f.unlink(missing_ok=True)
 
     write_audit_log(db, user, "delete_image", "image", image.id, details=f"slide_id={image.slide_id}")
     db.delete(image)
