@@ -36,10 +36,14 @@
   --red-600:   #d33b3b;
   --red-100:   #fbe4e4;
 
-  --gleason-3: #2f9e6b;
-  --gleason-4: #e0a12e;
-  --gleason-5: #d0492f;
-  --gleason-benign: #4aa6ec;
+  /* Match the AI segmentation mask's own palette (backend
+     app/inference/pipeline.py's MASK_COLORS_BGR) so the doctor-facing
+     Gleason chips/buttons read as the same colors as the mask overlay. */
+  --gleason-3: #ffd60a;
+  --gleason-4: #ff7f0e;
+  --gleason-5: #d62728;
+  --gleason-benign: #2ca02c;
+  --gleason-3-text: var(--gray-900);
 
   /* ============ SEMANTIC ALIASES ============ */
   --brand:            var(--blue-900);
@@ -200,3 +204,45 @@ textarea, input, select, button { font-family: inherit; }
 @keyframes pa-spin { to { transform: rotate(360deg); } }
 @keyframes pa-pulse { 0%, 100% { opacity: .4; } 50% { opacity: 1; } }
 @keyframes pa-fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* ============ PRINT STYLES ============
+   Strategy: hide the app shell elements (sidebar, topbar) by tagging them
+   with .no-print. The .print-area expands to fill the full page width so
+   the phiếu kết quả is the only thing visible on paper.
+   ============================================================ */
+@media print {
+  /* Sidebar and header are tagged no-print in App.tsx */
+  .no-print { display: none !important; }
+
+  /* The right-hand content column must go full-width when the sidebar
+     disappears; it normally sits in a flex row with the sidebar. */
+  .print-content-col {
+    flex: 1 1 100% !important;
+    min-width: 0;
+  }
+
+  /* Remove outer page chrome */
+  html, body {
+    background: white !important;
+    overflow: visible;
+  }
+
+  /* The report wrapper fills the page cleanly */
+  .print-area {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Strip card decoration for clean paper output */
+  .print-card {
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  @page {
+    margin: 15mm;
+    size: A4 portrait;
+  }
+}

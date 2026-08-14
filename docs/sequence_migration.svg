@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1480 1018" width="1480" height="1018" font-family="Segoe UI, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#42536b"/></marker></defs>
+<rect width="1480" height="1018" fill="#ffffff"/>
+<text x="740" y="32" text-anchor="middle" font-size="17" font-weight="700" fill="#12263f">Biểu đồ tuần tự — Di trú dữ liệu từ phần mềm quản lý ảnh cũ</text>
+<text x="740" y="52" text-anchor="middle" font-size="11" fill="#6b7c92">Xem trước không ghi dữ liệu; mỗi dòng nhập trong một điểm lưu riêng nên lỗi không lan cả mẻ</text>
+<rect x="50.0" y="82" width="200" height="34" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="150.0" y="102" text-anchor="middle" font-size="11.5" font-weight="700" fill="#12263f">Quản trị viên</text>
+<line x1="150.0" y1="116" x2="150.0" y2="994" stroke="#c6d3e2" stroke-width="1.2" stroke-dasharray="4 4"/>
+<rect x="345.0" y="82" width="200" height="48" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="445.0" y="102" text-anchor="middle" font-size="11.5" font-weight="700" fill="#12263f">Giao diện</text>
+<text x="445.0" y="116" text-anchor="middle" font-size="10" font-weight="400" fill="#3d4f66">Migration.tsx</text>
+<line x1="445.0" y1="130" x2="445.0" y2="994" stroke="#c6d3e2" stroke-width="1.2" stroke-dasharray="4 4"/>
+<rect x="640.0" y="82" width="200" height="48" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="740.0" y="102" text-anchor="middle" font-size="11.5" font-weight="700" fill="#12263f">API</text>
+<text x="740.0" y="116" text-anchor="middle" font-size="10" font-weight="400" fill="#3d4f66">routers/admin.py</text>
+<line x1="740.0" y1="130" x2="740.0" y2="994" stroke="#c6d3e2" stroke-width="1.2" stroke-dasharray="4 4"/>
+<rect x="935.0" y="82" width="200" height="48" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="1035.0" y="102" text-anchor="middle" font-size="11.5" font-weight="700" fill="#12263f">Tệp .db cũ</text>
+<text x="1035.0" y="116" text-anchor="middle" font-size="10" font-weight="400" fill="#3d4f66">mở chế độ chỉ đọc</text>
+<line x1="1035.0" y1="130" x2="1035.0" y2="994" stroke="#c6d3e2" stroke-width="1.2" stroke-dasharray="4 4"/>
+<rect x="1230.0" y="82" width="200" height="34" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="1330.0" y="102" text-anchor="middle" font-size="11.5" font-weight="700" fill="#12263f">CSDL + kho tệp</text>
+<line x1="1330.0" y1="116" x2="1330.0" y2="994" stroke="#c6d3e2" stroke-width="1.2" stroke-dasharray="4 4"/>
+<rect x="630.0" y="530" width="830.0" height="312" rx="4" fill="none" stroke="#9fb3c8" stroke-dasharray="4 3"/>
+<line x1="150.0" y1="156" x2="445.0" y2="156" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="297.5" y="149" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">chọn tệp .db của phần mềm cũ và các tệp ảnh đi kèm</text>
+<line x1="445.0" y1="196" x2="740.0" y2="196" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="592.5" y="189" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">POST /api/admin/migration/sqlite-preview  (multipart)</text>
+<polyline points="740.0,236 786.0,236 786.0,262 744.0,262" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="796.0" y="253.0" text-anchor="start" font-size="10.5" font-weight="400" fill="#3d4f66">ghi dữ liệu tải lên ra tệp tạm</text>
+<line x1="740.0" y1="290" x2="1035.0" y2="290" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="887.5" y="283" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">mở kết nối chế độ chỉ đọc (mode=ro)</text>
+<rect x="680.0" y="316" width="535.0" height="46" rx="4" fill="#fff5f5" stroke="#d98a8a"/>
+<text x="692.0" y="331" text-anchor="start" font-size="10" font-weight="700" fill="#a34a4a">alt  [không phải cơ sở dữ liệu SQLite] → 400 kèm thông báo tiếng Việt</text>
+<text x="692.0" y="346" text-anchor="start" font-size="10" font-weight="400" fill="#a34a4a">alt  [thiếu bảng bắt buộc] → 400, dừng trước khi làm bất cứ việc gì</text>
+<line x1="740.0" y1="390" x2="1035.0" y2="390" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="887.5" y="383" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">đếm ca / slide / ảnh, liệt kê độ phóng đại</text>
+<line x1="740.0" y1="430" x2="445.0" y2="430" stroke="#42536b" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#a)"/>
+<text x="592.5" y="423" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">bản xem trước — KHÔNG ghi bất kỳ dữ liệu nào</text>
+<line x1="150.0" y1="470" x2="445.0" y2="470" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="297.5" y="463" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">xác nhận có quyền dùng dữ liệu, chọn ẩn danh hay không</text>
+<line x1="445.0" y1="510" x2="740.0" y2="510" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="592.5" y="503" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">POST /api/admin/migration/sqlite-import?anonymize=…</text>
+<text x="638.0" y="544" text-anchor="start" font-size="10" font-weight="700" fill="#5a7794">loop  [mỗi ca bệnh trong tệp cũ]</text>
+<polyline points="740.0,562 786.0,562 786.0,588 744.0,588" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="796.0" y="579.0" text-anchor="start" font-size="10.5" font-weight="400" fill="#3d4f66">mở điểm lưu (SAVEPOINT) cho riêng dòng này</text>
+<line x1="740.0" y1="616" x2="1330.0" y2="616" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="1035.0" y="609" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">tạo ca / slide / ảnh với source = 'legacy_import'</text>
+<text x="1035.0" y="629" text-anchor="middle" font-size="9.5" font-weight="400" fill="#6b7c92" font-style="italic">giữ lại mã cũ, nhãn lam kính gốc và độ phóng đại</text>
+<polyline points="740.0,668 786.0,668 786.0,694 744.0,694" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="796.0" y="685.0" text-anchor="start" font-size="10.5" font-weight="400" fill="#3d4f66">đối chiếu tệp ảnh theo TÊN TỆP</text>
+<text x="796.0" y="700.0" text-anchor="start" font-size="9.5" font-weight="400" fill="#6b7c92" font-style="italic">đường dẫn trong dữ liệu cũ là đường dẫn máy gốc, không bao giờ hợp lệ</text>
+<line x1="740.0" y1="736" x2="1330.0" y2="736" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="1035.0" y="729" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">lưu ảnh qua đúng quy trình tải ảnh thông thường</text>
+<text x="1035.0" y="749" text-anchor="middle" font-size="9.5" font-weight="400" fill="#6b7c92" font-style="italic">thu nhỏ, xem nhanh và tiền xử lý tự động</text>
+<rect x="680.0" y="774" width="780.0" height="46" rx="4" fill="#fff5f5" stroke="#d98a8a"/>
+<text x="692.0" y="789" text-anchor="start" font-size="10" font-weight="700" fill="#a34a4a">alt  [lỗi ở dòng này — trùng mã số, thiếu tệp ảnh…]</text>
+<text x="692.0" y="804" text-anchor="start" font-size="10" font-weight="400" fill="#a34a4a">quay lui điểm lưu, ghi lý do vào danh sách bỏ qua, tiếp tục dòng sau</text>
+<line x1="740.0" y1="858" x2="1330.0" y2="858" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="1035.0" y="851" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">một bản ghi nhật ký tổng hợp cho cả lần nhập</text>
+<line x1="740.0" y1="898" x2="445.0" y2="898" stroke="#42536b" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#a)"/>
+<text x="592.5" y="891" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">số bản ghi đã tạo, số bỏ qua và lý do từng trường hợp</text>
+<line x1="445.0" y1="938" x2="150.0" y2="938" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="297.5" y="931" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">hiện kết quả ở bước cuối của trình hướng dẫn</text>
+</svg>

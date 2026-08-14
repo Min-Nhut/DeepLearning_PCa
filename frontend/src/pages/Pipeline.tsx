@@ -5,7 +5,7 @@ import { Disclaimer } from '../components/Histology';
 import { StateMessage } from '../components/ui/StateMessage';
 import { Icon } from '../lib/icon';
 import * as api from '../lib/api';
-import type { ApiInferenceRun, ModelInfoApi } from '../types';
+import type { ApiInferenceRun, ApiPreprocessing, ModelInfoApi } from '../types';
 
 const POLL_MS = 2500;
 
@@ -26,8 +26,19 @@ function metricsHint(m: ModelInfoApi | undefined): string {
   return m.metrics.slice(0, 2).map((x) => `${x.name} ${x.value}`).join(' · ');
 }
 
-function firstAvailable(models: ModelInfoApi[], task: 'segmentation' | 'classification'): string {
-  return models.find((m) => m.task_type === task && m.checkpoint_available)?.arch_key || '';
+/**
+ * The model the backend itself ranks best for this task, by its own recorded
+ * evaluation. Previously this took whichever entry happened to come first in
+ * the list, which handed anyone who never opened the picker the second-best
+ * classification model with nothing to indicate it.
+ */
+function defaultChoice(models: ModelInfoApi[], task: 'segmentation' | 'classification'): string {
+  const usable = models.filter((m) => m.task_type === task && m.checkpoint_available);
+  return (usable.find((m) => m.recommended) ?? usable[0])?.arch_key || '';
+}
+
+function optionLabel(m: ModelInfoApi): string {
+  return m.recommended ? `${m.name} (khuyến nghị)` : m.name;
 }
 
 export function Pipeline({ token, imageId, onDone, onBack }: {
@@ -43,6 +54,7 @@ export function Pipeline({ token, imageId, onDone, onBack }: {
   const [clfChoice, setClfChoice] = useState('');
   const [triggerBusy, setTriggerBusy] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
+  const [preprocessing, setPreprocessing] = useState<ApiPreprocessing | null>(null);
   const pollTimer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   function stopPolling() {
@@ -69,19 +81,21 @@ export function Pipeline({ token, imageId, onDone, onBack }: {
     setInitError(null);
     (async () => {
       try {
-        const [existing, modelList] = await Promise.all([
+        const [existing, modelList, preproc] = await Promise.all([
           api.getInference(token, imageId),
           api.getAvailableModels(token),
+          api.getPreprocessing(token, imageId).catch(() => null),
         ]);
         if (cancelled) return;
         setModels(modelList);
+        setPreprocessing(preproc);
         if (existing) {
           setRun(existing);
           setMode('progress');
           if (existing.status === 'pending' || existing.status === 'running') startPolling();
         } else {
-          setSegChoice(firstAvailable(modelList, 'segmentation'));
-          setClfChoice(firstAvailable(modelList, 'classification'));
+          setSegChoice(defaultChoice(modelList, 'segmentation'));
+          setClfChoice(defaultChoice(modelList, 'classification'));
           setMode('pick');
         }
       } catch (err) {
@@ -122,9 +136,9 @@ export function Pipeline({ token, imageId, onDone, onBack }: {
       const segStillAvailable = models.some((m) => m.task_type === 'segmentation' && m.checkpoint_available && m.arch_key === run.segmentation_model_version);
       const clfStillAvailable = models.some((m) => m.task_type === 'classification' && m.checkpoint_available && m.arch_key === run.classification_model_version);
       if (segStillAvailable && run.segmentation_model_version) setSegChoice(run.segmentation_model_version);
-      else setSegChoice(firstAvailable(models, 'segmentation'));
+      else setSegChoice(defaultChoice(models, 'segmentation'));
       if (clfStillAvailable && run.classification_model_version) setClfChoice(run.classification_model_version);
-      else setClfChoice(firstAvailable(models, 'classification'));
+      else setClfChoice(defaultChoice(models, 'classification'));
     }
     setInitError(null);
     setMode('pick');
@@ -156,7 +170,7 @@ export function Pipeline({ token, imageId, onDone, onBack }: {
               disabled={segOptions.length === 0}
               onChange={(e) => setSegChoice(e.target.value)}
               options={segOptions.length > 0
-                ? segOptions.map((m) => ({ value: m.arch_key, label: m.name }))
+                ? segOptions.map((m) => ({ value: m.arch_key, label: optionLabel(m) }))
                 : [{ value: '', label: 'Chưa có checkpoint khả dụng' }]}
             />
             {selectedSeg && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, fontFamily: 'var(--font-mono)' }}>{metricsHint(selectedSeg)}</div>}
@@ -168,13 +182,21 @@ export function Pipeline({ token, imageId, onDone, onBack }: {
               disabled={clfOptions.length === 0}
               onChange={(e) => setClfChoice(e.target.value)}
               options={clfOptions.length > 0
-                ? clfOptions.map((m) => ({ value: m.arch_key, label: m.name }))
+                ? clfOptions.map((m) => ({ value: m.arch_key, label: optionLabel(m) }))
                 : [{ value: '', label: 'Chưa có checkpoint khả dụng' }]}
             />
             {selectedClf && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, fontFamily: 'var(--font-mono)' }}>{metricsHint(selectedClf)}</div>}
           </div>
           {(segOptions.length === 0 || clfOptions.length === 0) && (
             <div style={{ fontSize: 12, color: 'var(--danger)' }}>Chưa có checkpoint khả dụng cho một trong hai tác vụ — không thể chạy phân tích.</div>
+          )}
+          {preprocessing?.is_blurry && (
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: 12, background: 'var(--warning-soft)', borderRadius: 'var(--radius-md)', fontSize: 12, color: 'var(--warning)' }}>
+              <Icon name="triangle-alert" size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+              <span>
+                Ảnh này được đánh giá là mờ (điểm chất lượng {preprocessing.quality_score?.toFixed(0) ?? '—'}) — kết quả AI có thể không đáng tin cậy. Vẫn có thể chạy phân tích, nhưng nên cân nhắc chụp/tải lại ảnh rõ hơn.
+              </span>
+            </div>
           )}
           {initError && <div style={{ fontSize: 12, color: 'var(--danger)' }}>{initError}</div>}
           <Button variant="accent" iconRight={<Icon name="arrow-right" />} disabled={!canStart} onClick={handleStart}>

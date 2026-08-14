@@ -12,18 +12,25 @@ __pycache__/
 *$py.class
 *.so
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
+# Anchored to the repo root (leading slash) on purpose. These are stock Python
+# *packaging* directory names, and unanchored they match at ANY depth — `lib/`
+# was silently swallowing `frontend/src/lib/` (dzi.ts, portal.ts were invisible
+# to git; only the older files there stayed visible because they'd been tracked
+# before this rule was added). Python build artifacts only ever appear at a
+# package root, so anchoring loses nothing; `frontend/dist` stays ignored by
+# frontend/.gitignore's own rule.
+/build/
+/develop-eggs/
+/dist/
+/downloads/
+/eggs/
+/.eggs/
+/lib/
+/lib64/
+/parts/
+/sdist/
+/var/
+/wheels/
 *.egg-info/
 .installed.cfg
 *.egg
@@ -97,6 +104,17 @@ lerna-debug.log*
 *.njsproj
 *.sln
 *.sw?
+
+# ============================================================
+# Tests
+# ============================================================
+backend/tests/
+backend/pytest.ini
+
+# ============================================================
+# Test images / large binary data
+# ============================================================
+test_image/
 
 # ============================================================
 # OS files

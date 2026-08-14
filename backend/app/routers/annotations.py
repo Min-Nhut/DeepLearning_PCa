@@ -49,6 +49,12 @@ def _get_annotation(db: Session, image_id: int, annotation_id: int) -> ManualAnn
 
 @router.get("/{image_id}/annotations", response_model=list[AnnotationOut])
 def list_annotations(image_id: int, db: Session = Depends(get_db)) -> list[AnnotationOut]:
+    # Without this an unknown or deleted image answers 200 with an empty list,
+    # which reads as "this image has no regions marked" — indistinguishable from
+    # the image being gone, and inconsistent with every other per-image GET
+    # here (/file, /review, /preprocessing all 404). POST already checks.
+    if db.get(Image, image_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy ảnh")
     rows = (
         db.query(ManualAnnotation)
         .filter(ManualAnnotation.image_id == image_id)

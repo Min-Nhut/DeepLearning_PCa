@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1420 940" width="1420" height="940" font-family="Segoe UI, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#42536b"/></marker><marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10" fill="none" stroke="#42536b" stroke-width="1.4"/></marker></defs>
+<rect width="1420" height="940" fill="#ffffff"/>
+<text x="710" y="32" text-anchor="middle" font-size="18" font-weight="700" fill="#12263f">Kiến trúc hệ thống ba tầng — ProstaAI</text>
+<rect x="50" y="70" width="1320" height="190" rx="8" fill="#f7f9fc" stroke="#d8e0ea" stroke-dasharray="5 4"/>
+<text x="64" y="90" font-size="12" font-weight="700" fill="#42536b">TẦNG TRÌNH BÀY  —  React 19 + TypeScript + Vite (một mã nguồn, hai bản dựng)</text>
+<rect x="80" y="108" width="300" height="130" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="230.0" y="153.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Cổng Bác sĩ  ·  :5173</text>
+<text x="230.0" y="169.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">Tổng quan · Ca bệnh · Tải ảnh</text>
+<text x="230.0" y="185.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">Trình xem tiêu bản · Đánh dấu</text>
+<text x="230.0" y="201.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">Phiếu kết quả</text>
+<rect x="410" y="108" width="300" height="130" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="560.0" y="153.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Cổng Quản trị  ·  :5174</text>
+<text x="560.0" y="169.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">Tổng quan hệ thống · Nhật ký</text>
+<text x="560.0" y="185.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">Model AI · Người dùng</text>
+<text x="560.0" y="201.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">Di trú dữ liệu · Xuất thư viện</text>
+<rect x="745" y="108" width="285" height="130" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="887.5" y="153.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Thư viện dùng chung</text>
+<text x="887.5" y="169.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">lib/api.ts — bọc fetch, gắn JWT</text>
+<text x="887.5" y="185.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">lib/dzi.ts — OpenSeadragon</text>
+<text x="887.5" y="201.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">lib/portal.ts — định danh cổng</text>
+<rect x="1060" y="108" width="280" height="130" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="1200.0" y="153.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Trình duyệt</text>
+<text x="1200.0" y="169.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">localStorage tách theo origin:</text>
+<text x="1200.0" y="185.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">prostaai_token_doctor</text>
+<text x="1200.0" y="201.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">prostaai_token_admin</text>
+<polyline points="710,285 710,320" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="725" y="306" text-anchor="start" font-size="11" font-weight="400" fill="#6b7c92">HTTP/JSON  ·  Authorization: Bearer &lt;JWT&gt;  ·  CORS chỉ cho phép :5173 và :5174</text>
+<rect x="50" y="335" width="1320" height="300" rx="8" fill="#f7f9fc" stroke="#d8e0ea" stroke-dasharray="5 4"/>
+<text x="64" y="355" font-size="12" font-weight="700" fill="#42536b">TẦNG ỨNG DỤNG  —  FastAPI + SQLAlchemy 2.0  ·  Uvicorn :8000 (một tiến trình)</text>
+<rect x="80" y="375" width="250" height="96" rx="6" fill="#eef7f0" stroke="#2f6f4f" stroke-width="1.5"/>
+<text x="205.0" y="403.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Lớp bảo mật</text>
+<text x="205.0" y="419.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">security.py — bcrypt, JWT HS256</text>
+<text x="205.0" y="435.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">deps.py — get_current_user,</text>
+<text x="205.0" y="451.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">require_admin</text>
+<rect x="80" y="490" width="250" height="118" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="205.0" y="529.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Lớp API (routers/)</text>
+<text x="205.0" y="545.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">auth · cases · reviews</text>
+<text x="205.0" y="561.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">annotations · inference · dzi</text>
+<text x="205.0" y="577.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">calibration · stats · admin</text>
+<rect x="355" y="375" width="265" height="96" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="487.5" y="411.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Lớp hợp đồng dữ liệu</text>
+<text x="487.5" y="427.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">schemas/ — Pydantic v2</text>
+<text x="487.5" y="443.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">kiểm tra vào/ra từng endpoint</text>
+<rect x="355" y="490" width="265" height="118" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="487.5" y="529.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Dịch vụ dùng chung</text>
+<text x="487.5" y="545.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">audit.py — ghi nhật ký</text>
+<text x="487.5" y="561.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">preprocessing.py — mờ, mô, màu</text>
+<text x="487.5" y="577.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">dzi.py — tháp ảnh (pyvips)</text>
+<rect x="650" y="375" width="300" height="96" rx="6" fill="#fdf3e3" stroke="#b8860b" stroke-width="1.5"/>
+<text x="800.0" y="411.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Điều phối tác vụ nền</text>
+<text x="800.0" y="427.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">BackgroundTasks + Semaphore(1)</text>
+<text x="800.0" y="443.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">tối đa một lần suy diễn đồng thời</text>
+<rect x="650" y="490" width="300" height="118" rx="6" fill="#fdf3e3" stroke="#b8860b" stroke-width="1.5"/>
+<text x="800.0" y="529.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Quy trình suy diễn (inference/)</text>
+<text x="800.0" y="545.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">scale.py → tiling.py → pipeline.py</text>
+<text x="800.0" y="561.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">registry.py — nạp &amp; cache trọng số</text>
+<text x="800.0" y="577.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">fusion.py — hợp nhất ISUP</text>
+<rect x="975" y="375" width="365" height="233" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="1157.5" y="463.5" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Thư viện xử lý &amp; học sâu</text>
+<text x="1157.5" y="479.5" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">PyTorch (CPU) · torchvision</text>
+<text x="1157.5" y="495.5" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">segmentation-models-pytorch</text>
+<text x="1157.5" y="511.5" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">OpenCV · NumPy · Pillow · pyvips</text>
+<text x="1157.5" y="527.5" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">scikit-learn · joblib (Stage 3)</text>
+<polyline points="500,660 500,700" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="515" y="686" text-anchor="start" font-size="11" font-weight="400" fill="#6b7c92">SQLAlchemy ORM  ·  PRAGMA foreign_keys = ON theo từng kết nối</text>
+<rect x="50" y="715" width="1320" height="165" rx="8" fill="#f7f9fc" stroke="#d8e0ea" stroke-dasharray="5 4"/>
+<text x="64" y="735" font-size="12" font-weight="700" fill="#42536b">TẦNG DỮ LIỆU  —  lưu trữ cục bộ trên một máy trạm</text>
+<rect x="80" y="752" width="380" height="108" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="270.0" y="794.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Cơ sở dữ liệu — SQLite</text>
+<text x="270.0" y="810.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">database/prostaai.db</text>
+<text x="270.0" y="826.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">14 bảng, lược đồ do docs/schema.sql sở hữu</text>
+<rect x="490" y="752" width="400" height="108" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="690.0" y="794.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Kho tệp — hệ thống tệp</text>
+<text x="690.0" y="810.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">backend/uploads/case_N/slide_M/</text>
+<text x="690.0" y="826.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">ảnh gốc · thu nhỏ · xem nhanh · mặt nạ · tháp DZI</text>
+<rect x="920" y="752" width="420" height="108" rx="6" fill="#fdf3e3" stroke="#b8860b" stroke-width="1.5"/>
+<text x="1130.0" y="794.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Kho mô hình</text>
+<text x="1130.0" y="810.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">backend/models/classification · segmentation</text>
+<text x="1130.0" y="826.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">7 tệp .pt  +  machine_learning_fusion/*.joblib</text>
+<path d="M 80 890 h 700 v 18 l -12 12 h -688 z" fill="#fffbe9" stroke="#d9c98a"/>
+<text x="92" y="910" font-size="10.5" fill="#6b5b23">Không dùng Docker, không hàng đợi tác vụ ngoài, không dịch vụ đám mây — toàn bộ chạy trên một máy trạm phòng thí nghiệm.</text>
+</svg>

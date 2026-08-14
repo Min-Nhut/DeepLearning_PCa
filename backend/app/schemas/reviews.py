@@ -2,6 +2,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from .cases import CaseGleasonOut
+
 
 class DiagnosticReviewOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -20,8 +22,12 @@ class DiagnosticReviewOut(BaseModel):
     lvi_present: bool
     lvi_notes: str | None
     free_notes: str | None
+    tumor_length_mm: float | None
+    needs_second_opinion: bool
+    second_opinion_notes: str | None
     status: str
     reviewed_by: int | None
+    reviewed_by_name: str | None = None
     confirmed_at: str | None
     created_at: str
     updated_at: str
@@ -36,3 +42,61 @@ class DiagnosticReviewUpdate(BaseModel):
     lvi_present: bool | None = None
     lvi_notes: str | None = None
     free_notes: str | None = None
+    tumor_length_mm: float | None = None
+    needs_second_opinion: bool | None = None
+    second_opinion_notes: str | None = None
+    cancer_area_percentage: float | None = None
+
+
+# ---------- case-level report ----------
+class CaseReportImage(BaseModel):
+    """One confirmed image inside a case report. Flattened deliberately: the
+    report screen renders a table, and the slide/image labels it needs live two
+    joins away from the review row."""
+    image_id: int
+    slide_label: str
+    image_number: int
+    magnification: str | None
+    primary_pattern: int | None
+    secondary_pattern: int | None
+    total_score: int | None
+    grade_group: int | None
+    cancer_area_percentage: float | None
+    tumor_length_mm: float | None
+    biopsy_location: str | None
+    pni_present: bool
+    pni_notes: str | None
+    lvi_present: bool
+    lvi_notes: str | None
+    free_notes: str | None
+    needs_second_opinion: bool
+    second_opinion_notes: str | None
+    confirmed_at: str | None
+    reviewed_by_name: str | None
+
+
+class CaseReportOut(BaseModel):
+    case_id: int
+    case_code: str
+    case_year: str | None
+    patient_name: str | None
+    patient_age: int | None
+    conclusion: str | None
+    created_at: str
+    gleason: CaseGleasonOut
+    images: list[CaseReportImage]
+    images_total: int
+    # Everyone who confirmed at least one image in this case — a case can be
+    # signed off by more than one pathologist, and the report has to say so
+    # rather than silently crediting one of them.
+    signed_by: list[str]
+
+
+class FlaggedReviewOut(BaseModel):
+    review_id: int
+    image_id: int
+    case_id: int
+    case_label: str
+    slide_label: str
+    second_opinion_notes: str | None
+    created_at: str

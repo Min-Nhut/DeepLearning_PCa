@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 672" width="1180" height="672" font-family="Segoe UI, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#42536b"/></marker></defs>
+<rect width="1180" height="672" fill="#fcfcfb"/>
+<text x="590" y="34" text-anchor="middle" font-size="18" font-weight="700" fill="#0b0b0b">Độ chính xác theo từng lớp mô khi sai tỉ lệ vật lý</text>
+<text x="590" y="55" text-anchor="middle" font-size="11.5" fill="#898781">Chỉ lớp lành tính sống sót — mọi lớp ung thư đều sụp đổ, tức sai theo hướng âm tính giả</text>
+<line x1="110" y1="460.0" x2="1090" y2="460.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="100" y="464.0" text-anchor="end" font-size="10.5" font-weight="400" fill="#898781">0</text>
+<line x1="110" y1="392.0" x2="1090" y2="392.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="100" y="396.0" text-anchor="end" font-size="10.5" font-weight="400" fill="#898781">20</text>
+<line x1="110" y1="324.0" x2="1090" y2="324.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="100" y="328.0" text-anchor="end" font-size="10.5" font-weight="400" fill="#898781">40</text>
+<line x1="110" y1="256.0" x2="1090" y2="256.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="100" y="260.0" text-anchor="end" font-size="10.5" font-weight="400" fill="#898781">60</text>
+<line x1="110" y1="188.0" x2="1090" y2="188.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="100" y="192.0" text-anchor="end" font-size="10.5" font-weight="400" fill="#898781">80</text>
+<line x1="110" y1="120.0" x2="1090" y2="120.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="100" y="124.0" text-anchor="end" font-size="10.5" font-weight="400" fill="#898781">100</text>
+<line x1="110" y1="460" x2="1090" y2="460" stroke="#c3c2b7" stroke-width="1"/>
+<text x="100" y="108" text-anchor="end" font-size="10.5" font-weight="400" fill="#898781">%</text>
+<path d="M 194.5 460 v -336.0 a 4 4 0 0 1 4 -4 h 16 a 4 4 0 0 1 4 4 v 336.0 z" fill="#2a78d6"/>
+<path d="M 220.5 460 v -336.0 a 4 4 0 0 1 4 -4 h 16 a 4 4 0 0 1 4 4 v 336.0 z" fill="#eb6834"/>
+<text x="232.5" y="111.0" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0b0b0b">100,0</text>
+<path d="M 246.5 460 v -328.52 a 4 4 0 0 1 4 -4 h 16 a 4 4 0 0 1 4 4 v 328.52 z" fill="#1baf7a"/>
+<text x="232.5" y="484" text-anchor="middle" font-size="12" font-weight="700" fill="#0b0b0b">Lành tính</text>
+<text x="232.5" y="500" text-anchor="middle" font-size="10.5" font-weight="400" fill="#898781">n = 45</text>
+<path d="M 439.5 460 v -261.53999999999996 a 4 4 0 0 1 4 -4 h 16 a 4 4 0 0 1 4 4 v 261.53999999999996 z" fill="#2a78d6"/>
+<path d="M 465.5 460 v -162.6 a 4 4 0 0 1 4 -4 h 16 a 4 4 0 0 1 4 4 v 162.6 z" fill="#eb6834"/>
+<text x="477.5" y="284.4" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0b0b0b">49,0</text>
+<path d="M 491.5 460 v -243.86000000000004 a 4 4 0 0 1 4 -4 h 16 a 4 4 0 0 1 4 4 v 243.86000000000004 z" fill="#1baf7a"/>
+<text x="477.5" y="484" text-anchor="middle" font-size="12" font-weight="700" fill="#0b0b0b">Gleason 3</text>
+<text x="477.5" y="500" text-anchor="middle" font-size="10.5" font-weight="400" fill="#898781">n = 96</text>
+<path d="M 684.5 460 v -295.2 a 4 4 0 0 1 4 -4 h 16 a 4 4 0 0 1 4 4 v 295.2 z" fill="#2a78d6"/>
+<path d="M 710.5 460 v -29.320000000000007 a 4 4 0 0 1 4 -4 h 16 a 4 4 0 0 1 4 4 v 29.320000000000007 z" fill="#eb6834"/>
+<text x="722.5" y="417.68" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0b0b0b">9,8</text>
+<path d="M 736.5 460 v -292.48 a 4 4 0 0 1 4 -4 h 16 a 4 4 0 0 1 4 4 v 292.48 z" fill="#1baf7a"/>
+<text x="722.5" y="484" text-anchor="middle" font-size="12" font-weight="700" fill="#0b0b0b">Gleason 4</text>
+<text x="722.5" y="500" text-anchor="middle" font-size="10.5" font-weight="400" fill="#898781">n = 133</text>
+<path d="M 929.5 460 v -227.2 a 4 4 0 0 1 4 -4 h 16 a 4 4 0 0 1 4 4 v 227.2 z" fill="#2a78d6"/>
+<path d="M 955.5 460 v -9.6 a 4 4 0 0 1 4 -4 h 16 a 4 4 0 0 1 4 4 v 9.6 z" fill="#eb6834"/>
+<text x="967.5" y="437.4" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0b0b0b">4,0</text>
+<path d="M 981.5 460 v -186.4 a 4 4 0 0 1 4 -4 h 16 a 4 4 0 0 1 4 4 v 186.4 z" fill="#1baf7a"/>
+<text x="967.5" y="484" text-anchor="middle" font-size="12" font-weight="700" fill="#0b0b0b">Gleason 5</text>
+<text x="967.5" y="500" text-anchor="middle" font-size="10.5" font-weight="400" fill="#898781">n = 50</text>
+<text x="110" y="545" text-anchor="start" font-size="11" font-weight="700" fill="#52514e">Điều kiện thí nghiệm</text>
+<rect x="110" y="562" width="14" height="14" rx="3" fill="#2a78d6"/>
+<text x="132" y="573" text-anchor="start" font-size="10.5" font-weight="400" fill="#52514e">Đúng tỉ lệ</text>
+<text x="132" y="587" text-anchor="start" font-size="10.5" font-weight="400" fill="#52514e">(mức trần)</text>
+<rect x="440" y="562" width="14" height="14" rx="3" fill="#eb6834"/>
+<text x="462" y="573" text-anchor="start" font-size="10.5" font-weight="400" fill="#52514e">Không hiệu chỉnh</text>
+<text x="462" y="587" text-anchor="start" font-size="10.5" font-weight="400" fill="#52514e">(hệ thống hiện tại)</text>
+<rect x="770" y="562" width="14" height="14" rx="3" fill="#1baf7a"/>
+<text x="792" y="573" text-anchor="start" font-size="10.5" font-weight="400" fill="#52514e">Có hiệu chỉnh</text>
+<text x="792" y="587" text-anchor="start" font-size="10.5" font-weight="400" fill="#52514e">tỉ lệ</text>
+<text x="110" y="622" text-anchor="start" font-size="10" font-weight="400" fill="#898781" font-style="italic">Nhãn giá trị chỉ ghi cho điều kiện không hiệu chỉnh — điều kiện mà biểu đồ nói về; số đầy đủ của cả ba điều kiện</text>
+<text x="110" y="638" text-anchor="start" font-size="10" font-weight="400" fill="#898781" font-style="italic">xem bảng trong docs/ABLATION_SCALE.md.</text>
+</svg>

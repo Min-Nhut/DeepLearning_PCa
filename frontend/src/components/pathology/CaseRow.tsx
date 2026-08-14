@@ -10,6 +10,10 @@ export interface CaseRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onCl
   caseId: string;
   patient: string;
   gleason?: GleasonPattern | string;
+  /** "4+3=7" — shown next to the chip, since a case-level score is a pattern
+   *  pair, not a single pattern. */
+  gleasonScore?: string | null;
+  /** The AI's confidence, not the doctor's — the column is labelled accordingly. */
   confidence?: number | null;
   status?: keyof typeof statusTone;
   date: string;
@@ -17,7 +21,7 @@ export interface CaseRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onCl
   onClick?: () => void;
 }
 
-export function CaseRow({ caseId, patient, gleason, confidence, status = 'new', date, selected = false, onClick, style, ...rest }: CaseRowProps) {
+export function CaseRow({ caseId, patient, gleason, gleasonScore, confidence, status = 'new', date, selected = false, onClick, style, ...rest }: CaseRowProps) {
   const [hover, setHover] = useState(false);
   return (
     <div
@@ -37,7 +41,10 @@ export function CaseRow({ caseId, patient, gleason, confidence, status = 'new', 
     >
       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--blue-800)', fontWeight: 500 }}>{caseId}</span>
       <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-strong)', fontWeight: 500 }}>{patient}</span>
-      <span>{gleason ? <GleasonChip pattern={gleason} size="sm" showLabel={false} /> : <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>—</span>}</span>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        {gleason ? <GleasonChip pattern={gleason} size="sm" showLabel={false} /> : <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>—</span>}
+        {gleasonScore && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--text-body)' }}>{gleasonScore}</span>}
+      </span>
       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--text-body)' }}>{confidence != null ? `${confidence}%` : '—'}</span>
       <span><Badge tone={statusTone[status]} dot>{statusLabel[status]}</Badge></span>
       <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>{date}</span>

@@ -23,7 +23,7 @@ export function navFor(role: Role): NavItem[] {
 // sidebar entry instead of showing no active item.
 export const SIDE_MAP: Partial<Record<Nav, Nav>> = {
   caseDetail: 'cases', caseForm: 'cases', viewer: 'cases', report: 'cases', pipeline: 'upload',
-  annotate: 'cases',
+  annotate: 'cases', caseReport: 'cases',
 };
 
 const TITLES: Record<Nav, [string, string]> = {
@@ -36,6 +36,7 @@ const TITLES: Record<Nav, [string, string]> = {
   viewer: ['Ca bệnh', 'Trình xem tiêu bản'],
   report: ['Ca bệnh', 'Phiếu kết quả'],
   annotate: ['Ca bệnh', 'Đánh dấu thủ công'],
+  caseReport: ['Ca bệnh', 'Phiếu kết quả ca'],
   adashboard: ['Quản trị', 'Tổng quan hệ thống'],
   alog: ['Quản trị', 'Lịch sử & Log'],
   models: ['Quản trị', 'Model AI'],

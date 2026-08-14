@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 620" width="1180" height="620" font-family="Segoe UI, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#42536b"/></marker></defs>
+<rect width="1180" height="620" fill="#fcfcfb"/>
+<text x="590" y="34" text-anchor="middle" font-size="18" font-weight="700" fill="#0b0b0b">Ảnh hưởng của sai lệch tỉ lệ vật lý đến kết quả phân loại</text>
+<text x="590" y="55" text-anchor="middle" font-size="11.5" fill="#898781">324 vùng ảnh PANDA có nhãn thật, 35 tiêu bản · mô hình gộp 4 kiến trúc · nguồn: docs/ABLATION_SCALE.md</text>
+<text x="110" y="116" text-anchor="start" font-size="12.5" font-weight="700" fill="#0b0b0b">Độ chính xác</text>
+<line x1="110" y1="470.0" x2="540" y2="470.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="100" y="474.0" text-anchor="end" font-size="10.5" font-weight="400" fill="#898781">0</text>
+<line x1="110" y1="402.0" x2="540" y2="402.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="100" y="406.0" text-anchor="end" font-size="10.5" font-weight="400" fill="#898781">20</text>
+<line x1="110" y1="334.0" x2="540" y2="334.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="100" y="338.0" text-anchor="end" font-size="10.5" font-weight="400" fill="#898781">40</text>
+<line x1="110" y1="266.0" x2="540" y2="266.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="100" y="270.0" text-anchor="end" font-size="10.5" font-weight="400" fill="#898781">60</text>
+<line x1="110" y1="198.0" x2="540" y2="198.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="100" y="202.0" text-anchor="end" font-size="10.5" font-weight="400" fill="#898781">80</text>
+<line x1="110" y1="130.0" x2="540" y2="130.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="100" y="134.0" text-anchor="end" font-size="10.5" font-weight="400" fill="#898781">100</text>
+<line x1="110" y1="470" x2="540" y2="470" stroke="#c3c2b7" stroke-width="1"/>
+<text x="100" y="120" text-anchor="end" font-size="10.5" font-weight="400" fill="#898781">%</text>
+<path d="M 169.66666666666669 470 v -280.23999999999995 a 4 4 0 0 1 4 -4 h 16 a 4 4 0 0 1 4 4 v 280.23999999999995 z" fill="#2a78d6"/>
+<text x="181.66666666666669" y="176.76000000000005" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0b0b0b">83,6%</text>
+<path d="M 313.0 470 v -108.2 a 4 4 0 0 1 4 -4 h 16 a 4 4 0 0 1 4 4 v 108.2 z" fill="#eb6834"/>
+<text x="325.0" y="348.8" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0b0b0b">33,0%</text>
+<path d="M 456.33333333333337 470 v -266.64 a 4 4 0 0 1 4 -4 h 16 a 4 4 0 0 1 4 4 v 266.64 z" fill="#1baf7a"/>
+<text x="468.33333333333337" y="190.36" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0b0b0b">79,6%</text>
+<text x="110" y="504" text-anchor="start" font-size="10.5" font-weight="400" fill="#898781" font-style="italic">Hiệu chỉnh lấy lại 79,6% so với mức trần 83,6%.</text>
+<text x="690" y="116" text-anchor="start" font-size="12.5" font-weight="700" fill="#0b0b0b">Độ tin cậy trung bình của mô hình</text>
+<line x1="690" y1="470.0" x2="1120" y2="470.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="680" y="474.0" text-anchor="end" font-size="10.5" font-weight="400" fill="#898781">0</text>
+<line x1="690" y1="402.0" x2="1120" y2="402.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="680" y="406.0" text-anchor="end" font-size="10.5" font-weight="400" fill="#898781">20</text>
+<line x1="690" y1="334.0" x2="1120" y2="334.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="680" y="338.0" text-anchor="end" font-size="10.5" font-weight="400" fill="#898781">40</text>
+<line x1="690" y1="266.0" x2="1120" y2="266.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="680" y="270.0" text-anchor="end" font-size="10.5" font-weight="400" fill="#898781">60</text>
+<line x1="690" y1="198.0" x2="1120" y2="198.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="680" y="202.0" text-anchor="end" font-size="10.5" font-weight="400" fill="#898781">80</text>
+<line x1="690" y1="130.0" x2="1120" y2="130.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="680" y="134.0" text-anchor="end" font-size="10.5" font-weight="400" fill="#898781">100</text>
+<line x1="690" y1="470" x2="1120" y2="470" stroke="#c3c2b7" stroke-width="1"/>
+<text x="680" y="120" text-anchor="end" font-size="10.5" font-weight="400" fill="#898781">%</text>
+<path d="M 749.6666666666666 470 v -213.93999999999997 a 4 4 0 0 1 4 -4 h 16 a 4 4 0 0 1 4 4 v 213.93999999999997 z" fill="#2a78d6"/>
+<text x="761.6666666666666" y="243.06000000000003" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0b0b0b">64,1%</text>
+<path d="M 893.0 470 v -264.93999999999994 a 4 4 0 0 1 4 -4 h 16 a 4 4 0 0 1 4 4 v 264.93999999999994 z" fill="#eb6834"/>
+<text x="905.0" y="192.06000000000006" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0b0b0b">79,1%</text>
+<path d="M 1036.3333333333335 470 v -212.92 a 4 4 0 0 1 4 -4 h 16 a 4 4 0 0 1 4 4 v 212.92 z" fill="#1baf7a"/>
+<text x="1048.3333333333335" y="244.08" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0b0b0b">63,8%</text>
+<text x="690" y="504" text-anchor="start" font-size="10.5" font-weight="400" fill="#898781" font-style="italic">Điều kiện sai nhất lại là điều kiện tự tin nhất.</text>
+<text x="110" y="545" text-anchor="start" font-size="11" font-weight="700" fill="#52514e">Điều kiện thí nghiệm</text>
+<rect x="110" y="562" width="14" height="14" rx="3" fill="#2a78d6"/>
+<text x="132" y="573" text-anchor="start" font-size="10.5" font-weight="400" fill="#52514e">Đúng tỉ lệ</text>
+<text x="132" y="587" text-anchor="start" font-size="10.5" font-weight="400" fill="#52514e">(mức trần)</text>
+<rect x="440" y="562" width="14" height="14" rx="3" fill="#eb6834"/>
+<text x="462" y="573" text-anchor="start" font-size="10.5" font-weight="400" fill="#52514e">Không hiệu chỉnh</text>
+<text x="462" y="587" text-anchor="start" font-size="10.5" font-weight="400" fill="#52514e">(hệ thống hiện tại)</text>
+<rect x="770" y="562" width="14" height="14" rx="3" fill="#1baf7a"/>
+<text x="792" y="573" text-anchor="start" font-size="10.5" font-weight="400" fill="#52514e">Có hiệu chỉnh</text>
+<text x="792" y="587" text-anchor="start" font-size="10.5" font-weight="400" fill="#52514e">tỉ lệ</text>
+</svg>

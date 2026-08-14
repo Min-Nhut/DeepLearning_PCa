@@ -52,7 +52,17 @@ def get_classification_model(name: str) -> nn.Module:
         # notebook does) so no AuxLogits submodule is ever created — matches the
         # saved checkpoint's state_dict, which also has no AuxLogits.* keys since
         # `m.AuxLogits = None` during training deregistered it from state_dict too.
-        m = models.inception_v3(weights=None, aux_logits=False)
+        #
+        # transform_input=True is REQUIRED and was missing until 2026-08-08.
+        # torchvision's factory turns it on automatically whenever `weights=` is
+        # passed, so the notebook got it by training from ImageNet weights; here
+        # `weights=None` left it False, and the flag is a plain attribute rather
+        # than a parameter, so `load_state_dict(strict=True)` was perfectly happy.
+        # The network was then fed inputs normalised for the wrong scheme and
+        # collapsed onto one class: measured on 62 real labelled PANDA patches,
+        # 16.1% accuracy predicting gleason_5 for 56 of them, against 83.9% with
+        # the flag set — its own reported test accuracy is 86.11%.
+        m = models.inception_v3(weights=None, aux_logits=False, transform_input=True)
         m.fc = nn.Linear(m.fc.in_features, CLF_NUM_CLASSES)
         return m
     if name == "vit_b_16":

@@ -81,6 +81,8 @@ CREATE TABLE images (
     source                  TEXT NOT NULL DEFAULT 'upload'
                                 CHECK (source IN ('upload', 'live_capture', 'legacy_import')),
     legacy_image_id          TEXT,                          -- truy vết ảnh gốc từ hệ thống desktop
+    magnification            TEXT                            -- độ phóng đại lúc chụp, vd hệ cũ (SlideDoPhongDai)
+                                CHECK (magnification IN ('4x', '10x', '20x', '40x')),
 
     created_at              TEXT NOT NULL DEFAULT (datetime('now')),
 
@@ -187,6 +189,9 @@ CREATE TABLE diagnostic_reviews (
     lvi_present                                  INTEGER DEFAULT 0,
     lvi_notes                                      TEXT,
     free_notes                                       TEXT,
+    tumor_length_mm                                  REAL,      -- đo bằng công cụ thước đo, cần hiệu chỉnh µm/pixel
+    needs_second_opinion                             INTEGER DEFAULT 0,  -- 0/1 — cờ "cần hội chẩn"
+    second_opinion_notes                             TEXT,       -- lý do gắn cờ
 
     status                                             TEXT NOT NULL DEFAULT 'draft'
                                                             CHECK (status IN ('draft', 'confirmed')),
@@ -246,3 +251,34 @@ CREATE TABLE manual_annotations (
 );
 
 CREATE INDEX idx_annotations_image ON manual_annotations(image_id);
+
+-- ----------------------------------------------------------------------------
+-- 13. MAGNIFICATION CALIBRATION  (µm/pixel per objective — đo bằng stage
+--     micrometer thật ngoài đời, admin nhập; công cụ thước đo trong Viewer
+--     dùng để quy đổi pixel -> mm. Trống mặc định = "chưa hiệu chỉnh".)
+-- ----------------------------------------------------------------------------
+CREATE TABLE magnification_calibration (
+    magnification    TEXT PRIMARY KEY CHECK (magnification IN ('4x', '10x', '20x', '40x')),
+    um_per_pixel      REAL NOT NULL,
+    updated_by          INTEGER REFERENCES users(id),
+    updated_at             TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ----------------------------------------------------------------------------
+-- 14. STAGE 3 RESULTS  (WSI-level ML fusion — MLPClassifier trained on 8
+--     classification-only features, predicts ISUP grade 0-5 directly. Separate
+--     from segmentation_results/classification_results since it's a 3rd,
+--     independently-trained model tier, not another view of the same run.)
+-- ----------------------------------------------------------------------------
+CREATE TABLE stage3_results (
+    id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id                    INTEGER NOT NULL REFERENCES inference_runs(id) ON DELETE CASCADE,
+
+    isup_grade                 INTEGER CHECK (isup_grade BETWEEN 0 AND 5),
+    confidence                   REAL,                      -- 0..1, predict_proba of the predicted class
+    classification_pct_json        TEXT,                      -- the 8 raw % values fed to the model (traceability)
+
+    created_at                       TEXT NOT NULL DEFAULT (datetime('now')),
+
+    UNIQUE (run_id)
+);

@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1420 906" width="1420" height="906" font-family="Segoe UI, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#42536b"/></marker></defs>
+<rect width="1420" height="906" fill="#ffffff"/>
+<text x="710" y="32" text-anchor="middle" font-size="17" font-weight="700" fill="#12263f">Biểu đồ tuần tự — Xem tiêu bản với thu phóng sâu</text>
+<text x="710" y="52" text-anchor="middle" font-size="11" fill="#6b7c92">Tháp lát ảnh sinh một lần ở lần xem đầu tiên; mọi lát đều đi qua kiểm tra xác thực</text>
+<rect x="50.0" y="82" width="200" height="34" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="150.0" y="102" text-anchor="middle" font-size="11.5" font-weight="700" fill="#12263f">Bác sĩ</text>
+<line x1="150.0" y1="116" x2="150.0" y2="882" stroke="#c6d3e2" stroke-width="1.2" stroke-dasharray="4 4"/>
+<rect x="330.0" y="82" width="200" height="48" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="430.0" y="102" text-anchor="middle" font-size="11.5" font-weight="700" fill="#12263f">OpenSeadragon</text>
+<text x="430.0" y="116" text-anchor="middle" font-size="10" font-weight="400" fill="#3d4f66">trong trình duyệt</text>
+<line x1="430.0" y1="130" x2="430.0" y2="882" stroke="#c6d3e2" stroke-width="1.2" stroke-dasharray="4 4"/>
+<rect x="610.0" y="82" width="200" height="48" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="710.0" y="102" text-anchor="middle" font-size="11.5" font-weight="700" fill="#12263f">API</text>
+<text x="710.0" y="116" text-anchor="middle" font-size="10" font-weight="400" fill="#3d4f66">routers/dzi.py</text>
+<line x1="710.0" y1="130" x2="710.0" y2="882" stroke="#c6d3e2" stroke-width="1.2" stroke-dasharray="4 4"/>
+<rect x="890.0" y="82" width="200" height="48" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="990.0" y="102" text-anchor="middle" font-size="11.5" font-weight="700" fill="#12263f">Luồng phụ</text>
+<text x="990.0" y="116" text-anchor="middle" font-size="10" font-weight="400" fill="#3d4f66">pyvips</text>
+<line x1="990.0" y1="130" x2="990.0" y2="882" stroke="#c6d3e2" stroke-width="1.2" stroke-dasharray="4 4"/>
+<rect x="1170.0" y="82" width="200" height="34" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="1270.0" y="102" text-anchor="middle" font-size="11.5" font-weight="700" fill="#12263f">Kho tệp</text>
+<line x1="1270.0" y1="116" x2="1270.0" y2="882" stroke="#c6d3e2" stroke-width="1.2" stroke-dasharray="4 4"/>
+<rect x="880.0" y="308" width="520.0" height="120" rx="4" fill="none" stroke="#9fb3c8" stroke-dasharray="4 3"/>
+<rect x="320.0" y="516" width="1080.0" height="226" rx="4" fill="none" stroke="#9fb3c8" stroke-dasharray="4 3"/>
+<line x1="150.0" y1="156" x2="430.0" y2="156" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="290.0" y="149" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">mở trình xem tiêu bản</text>
+<line x1="430.0" y1="196" x2="710.0" y2="196" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="570.0" y="189" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">GET /api/images/{id}/dzi</text>
+<text x="570.0" y="209" text-anchor="middle" font-size="9.5" font-weight="400" fill="#6b7c92" font-style="italic">Authorization: Bearer — không có ảnh nào công khai</text>
+<line x1="710.0" y1="248" x2="990.0" y2="248" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="850.0" y="241" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">ensure_dzi(đường dẫn ảnh gốc)</text>
+<line x1="990.0" y1="288" x2="1270.0" y2="288" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="1130.0" y="281" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">tháp lát ảnh đã tồn tại chưa?</text>
+<text x="888.0" y="322" text-anchor="start" font-size="10" font-weight="700" fill="#5a7794">alt  [chưa có — lần xem đầu tiên]</text>
+<polyline points="990.0,340 1036.0,340 1036.0,366 994.0,366" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="1046.0" y="357.0" text-anchor="start" font-size="10.5" font-weight="400" fill="#3d4f66">dzsave: lát 256 px, chồng mép 1 px, JPEG chất lượng 85</text>
+<line x1="990.0" y1="394" x2="1270.0" y2="394" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="1130.0" y="387" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">ghi tệp mô tả .dzi và toàn bộ thư mục lát theo từng mức</text>
+<line x1="990.0" y1="444" x2="710.0" y2="444" stroke="#42536b" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#a)"/>
+<text x="850.0" y="437" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">đường dẫn tệp mô tả</text>
+<text x="850.0" y="457" text-anchor="middle" font-size="9.5" font-weight="400" fill="#6b7c92" font-style="italic">lần xem sau chỉ là một lần đọc tệp có sẵn</text>
+<line x1="710.0" y1="496" x2="430.0" y2="496" stroke="#42536b" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#a)"/>
+<text x="570.0" y="489" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">200 application/xml — kích thước gốc và mẫu URL lát</text>
+<text x="328.0" y="530" text-anchor="start" font-size="10" font-weight="700" fill="#5a7794">loop  [mỗi lát nằm trong khung nhìn hiện tại]</text>
+<line x1="430.0" y1="548" x2="710.0" y2="548" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="570.0" y="541" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">GET .../dzi_files/{level}/{col}_{row}.jpg</text>
+<text x="570.0" y="561" text-anchor="middle" font-size="9.5" font-weight="400" fill="#6b7c92" font-style="italic">kèm JWT trong mỗi yêu cầu lát</text>
+<polyline points="710.0,600 756.0,600 756.0,626 714.0,626" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="766.0" y="617.0" text-anchor="start" font-size="10.5" font-weight="400" fill="#3d4f66">đối chiếu tên tệp với biểu thức chính quy</text>
+<text x="766.0" y="632.0" text-anchor="start" font-size="9.5" font-weight="400" fill="#6b7c92" font-style="italic">chặn đường dẫn vượt thư mục; tên sai → 400</text>
+<line x1="710.0" y1="668" x2="1270.0" y2="668" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="990.0" y="661" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">đọc lát đã lưu</text>
+<line x1="710.0" y1="708" x2="430.0" y2="708" stroke="#42536b" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#a)"/>
+<text x="570.0" y="701" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">200 image/jpeg</text>
+<line x1="150.0" y1="758" x2="430.0" y2="758" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="290.0" y="751" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">kéo và phóng to</text>
+<polyline points="430.0,798 476.0,798 476.0,824 434.0,824" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="486.0" y="815.0" text-anchor="start" font-size="10.5" font-weight="400" fill="#3d4f66">chỉ tải lát của mức phân giải và vùng đang xem</text>
+<text x="486.0" y="830.0" text-anchor="start" font-size="9.5" font-weight="400" fill="#6b7c92" font-style="italic">không bao giờ tải toàn bộ ảnh gigapixel về trình duyệt</text>
+</svg>

@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 # ---------- stats ----------
@@ -24,7 +24,10 @@ class UserOut(BaseModel):
 
 class UserCreate(BaseModel):
     username: str
-    password: str
+    # min_length=8 — no strength check existed before at all (an admin could
+    # create a 1-character password). Only applies to newly-created accounts;
+    # does not retroactively touch existing bootstrap accounts.
+    password: str = Field(min_length=8)
     full_name: str | None = None
     role: str = "user"
 
@@ -62,6 +65,9 @@ class ModelInfo(BaseModel):
     trained_at: str | None = None  # computed from checkpoint file mtime, None if missing
     status: str = "pending"  # "active" if checkpoint_available else "pending"
     checkpoint_available: bool = False
+    # Best available model for this task by its own recorded evaluation — the
+    # picker defaults here and labels it, so the choice is informed.
+    recommended: bool = False
 
 
 # ---------- migration ----------
@@ -75,4 +81,30 @@ class MigrationPreview(BaseModel):
 class MigrationImportResult(BaseModel):
     imported: int
     skipped: int
+    skipped_reasons: list[str]
+
+
+# ---------- migration — legacy ImageCapture SQLite connector ----------
+class SqliteCasePreview(BaseModel):
+    case_code: str
+    case_year: str | None
+    patient_name: str | None
+    slide_count: int
+    image_count: int
+
+
+class SqliteMigrationPreview(BaseModel):
+    case_count: int
+    slide_count: int
+    image_count: int
+    magnifications_found: list[str]
+    cases: list[SqliteCasePreview]
+
+
+class SqliteMigrationImportResult(BaseModel):
+    cases_imported: int
+    cases_skipped: int
+    slides_imported: int
+    images_imported: int
+    images_skipped: int
     skipped_reasons: list[str]

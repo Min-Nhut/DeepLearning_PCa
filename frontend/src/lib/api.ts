@@ -5,9 +5,15 @@ import type {
   ApiDiagnosticReview,
   ApiImage,
   ApiInferenceRun,
+  ApiPreprocessing,
   ApiSlide,
   ApiUser,
+  Calibration,
+  CaseGleason,
+  CaseReport,
   DiagnosticReviewUpdate,
+  DoctorStats,
+  FlaggedReview,
   InferenceTriggerRequest,
   LogEntryApi,
   MeResponse,
@@ -15,6 +21,8 @@ import type {
   MigrationPreview,
   ModelInfoApi,
   Point,
+  SqliteMigrationImportResult,
+  SqliteMigrationPreview,
 } from '../types';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) || 'http://localhost:8000';
@@ -103,6 +111,13 @@ export function getAvailableModels(token: string): Promise<ModelInfoApi[]> {
   return apiFetch('/api/models', {}, token);
 }
 
+/** Drops this architecture's loaded weights server-side so the next run reads
+ *  the checkpoint file again — replacing a .pt on disk otherwise has no effect
+ *  until the backend restarts. */
+export function reloadModel(token: string, taskType: string, archKey: string): Promise<ModelInfoApi> {
+  return apiFetch(`/api/admin/models/${taskType}/${archKey}/reload`, { method: 'POST' }, token);
+}
+
 export async function exportLibrary(
   token: string,
   format: 'csv' | 'json',
@@ -138,6 +153,25 @@ export function migrationImport(token: string, file: File, anonymize: boolean): 
   return apiFetch(`/api/admin/migration/import?anonymize=${anonymize}`, { method: 'POST', body: form }, token);
 }
 
+export function migrationSqlitePreview(token: string, dbFile: File): Promise<SqliteMigrationPreview> {
+  const form = new FormData();
+  form.append('db_file', dbFile);
+  return apiFetch('/api/admin/migration/sqlite-preview', { method: 'POST', body: form }, token);
+}
+
+export function migrationSqliteImport(
+  token: string,
+  dbFile: File,
+  imageFiles: File[],
+  anonymize: boolean,
+): Promise<SqliteMigrationImportResult> {
+  const form = new FormData();
+  form.append('db_file', dbFile);
+  imageFiles.forEach((f) => form.append('image_files', f));
+  form.append('anonymize', String(anonymize));
+  return apiFetch('/api/admin/migration/sqlite-import', { method: 'POST', body: form }, token);
+}
+
 // ---------- cases / slides / images ----------
 export function getCases(token: string, q?: string): Promise<ApiCase[]> {
   return apiFetch(`/api/cases${q ? `?q=${encodeURIComponent(q)}` : ''}`, {}, token);
@@ -145,6 +179,15 @@ export function getCases(token: string, q?: string): Promise<ApiCase[]> {
 
 export function getCase(token: string, caseId: number): Promise<ApiCase> {
   return apiFetch(`/api/cases/${caseId}`, {}, token);
+}
+
+export function getCaseGleason(token: string, caseId: number): Promise<CaseGleason> {
+  return apiFetch(`/api/cases/${caseId}/gleason`, {}, token);
+}
+
+/** Everything the case-level (signed) report needs, in one call. */
+export function getCaseReport(token: string, caseId: number): Promise<CaseReport> {
+  return apiFetch(`/api/cases/${caseId}/report`, {}, token);
 }
 
 export function createCase(
@@ -162,20 +205,40 @@ export function updateCase(
   return apiFetch(`/api/cases/${caseId}`, { method: 'PATCH', body: JSON.stringify(payload) }, token);
 }
 
+export function deleteCase(token: string, caseId: number): Promise<void> {
+  return apiFetch(`/api/cases/${caseId}`, { method: 'DELETE' }, token);
+}
+
 export function addSlide(token: string, caseId: number): Promise<ApiSlide> {
   return apiFetch(`/api/cases/${caseId}/slides`, { method: 'POST', body: JSON.stringify({}) }, token);
+}
+
+export function deleteSlide(token: string, slideId: number): Promise<void> {
+  return apiFetch(`/api/cases/slides/${slideId}`, { method: 'DELETE' }, token);
+}
+
+/** Swaps the slide with its neighbour. Only the position changes — the slide
+ *  keeps its own label, which names a real piece of glass. */
+export function moveSlide(token: string, slideId: number, direction: 'up' | 'down'): Promise<ApiSlide> {
+  return apiFetch(`/api/cases/slides/${slideId}/move`, { method: 'POST', body: JSON.stringify({ direction }) }, token);
 }
 
 export function uploadImage(
   token: string,
   slideId: number,
   file: File | Blob,
-  opts: { description?: string; source?: 'upload' | 'live_capture'; filename?: string } = {},
+  opts: {
+    description?: string;
+    source?: 'upload' | 'live_capture';
+    filename?: string;
+    magnification?: '4x' | '10x' | '20x' | '40x';
+  } = {},
 ): Promise<ApiImage> {
   const form = new FormData();
   form.append('file', file, opts.filename ?? (file instanceof File ? file.name : 'capture.jpg'));
   if (opts.description) form.append('description', opts.description);
   form.append('source', opts.source ?? 'upload');
+  if (opts.magnification) form.append('magnification', opts.magnification);
   return apiFetch(`/api/cases/slides/${slideId}/images`, { method: 'POST', body: form }, token);
 }
 
@@ -253,10 +316,6 @@ export function getMaskBlobUrl(token: string, runId: number): Promise<string> {
   return getBlobUrl(token, `/api/inference-runs/${runId}/mask`);
 }
 
-export function getHeatmapBlobUrl(token: string, runId: number): Promise<string> {
-  return getBlobUrl(token, `/api/inference-runs/${runId}/heatmap`);
-}
-
 // ---------- diagnostic review ----------
 export async function getReview(token: string, imageId: number): Promise<ApiDiagnosticReview | null> {
   try {
@@ -277,4 +336,36 @@ export function updateReview(
 
 export function confirmReview(token: string, imageId: number): Promise<ApiDiagnosticReview> {
   return apiFetch(`/api/images/${imageId}/review/confirm`, { method: 'POST' }, token);
+}
+
+export function getFlaggedReviews(token: string): Promise<FlaggedReview[]> {
+  return apiFetch('/api/reviews/flagged', {}, token);
+}
+
+// ---------- preprocessing (blur/tissue quality check) ----------
+export async function getPreprocessing(token: string, imageId: number): Promise<ApiPreprocessing | null> {
+  try {
+    return await apiFetch<ApiPreprocessing>(`/api/images/${imageId}/preprocessing`, {}, token);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  }
+}
+
+export function getImage(token: string, imageId: number): Promise<ApiImage> {
+  return apiFetch(`/api/images/${imageId}`, {}, token);
+}
+
+// ---------- magnification calibration (µm/pixel, for the ruler tool) ----------
+export function getCalibration(token: string): Promise<Calibration[]> {
+  return apiFetch('/api/calibration', {}, token);
+}
+
+export function setCalibration(token: string, magnification: string, umPerPixel: number): Promise<Calibration> {
+  return apiFetch(`/api/admin/calibration/${magnification}`, { method: 'PUT', body: JSON.stringify({ um_per_pixel: umPerPixel }) }, token);
+}
+
+// ---------- doctor dashboard stats ----------
+export function getDoctorStats(token: string): Promise<DoctorStats> {
+  return apiFetch('/api/stats/doctor', {}, token);
 }

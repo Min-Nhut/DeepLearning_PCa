@@ -113,6 +113,37 @@ MODELS: list[ModelInfo] = [
 ]
 
 
+# The metric each task is ranked by. Both are "higher is better" and both are
+# the headline number the training notebooks themselves report.
+_RANKING_METRIC = {"classification": "F1 (macro)", "segmentation": "IoU (mean)"}
+
+
+def _metric(model: ModelInfo, name: str) -> float:
+    for metric in model.metrics:
+        if metric.name == name:
+            return float(metric.value)
+    return -1.0
+
+
+def recommended_arch(task_type: str, available_only: bool = True) -> str | None:
+    """Best available architecture for a task, by its own recorded evaluation.
+
+    Derived rather than hard-coded, because the previous default was simply the
+    first entry in a list — which happened to be right for segmentation and
+    wrong for classification, where densenet121 (F1 0.8634) shadowed
+    efficientnet_b0 (F1 0.8685). A doctor who never touched the picker got the
+    second-best model with nothing indicating it.
+    """
+    candidates = [
+        m for m in MODELS
+        if m.task_type == task_type
+        and (not available_only or model_registry.is_available(m.task_type, m.arch_key))
+    ]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda m: _metric(m, _RANKING_METRIC[task_type])).arch_key
+
+
 def list_model_infos() -> list[ModelInfo]:
     """MODELS with live `checkpoint_available`/`trained_at`/`status` filled in
     from whatever's actually on disk right now. Shared by both `GET
@@ -120,6 +151,7 @@ def list_model_infos() -> list[ModelInfo]:
     user — the model-selector picker on the Pipeline screen needs this too,
     and doctors aren't admins) so the two never drift apart.
     """
+    best = {task: recommended_arch(task) for task in ("classification", "segmentation")}
     out = []
     for m in MODELS:
         available = model_registry.is_available(m.task_type, m.arch_key)
@@ -131,5 +163,6 @@ def list_model_infos() -> list[ModelInfo]:
             "checkpoint_available": available,
             "trained_at": trained_at,
             "status": "active" if available else "pending",
+            "recommended": available and best[m.task_type] == m.arch_key,
         }))
     return out

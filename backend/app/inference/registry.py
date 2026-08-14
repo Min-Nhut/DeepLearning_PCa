@@ -42,6 +42,20 @@ def is_available(task: Task, arch: str) -> bool:
     return _checkpoint_path(task, arch).exists()
 
 
+def evict(task: Task, arch: str) -> bool:
+    """Drop a loaded model so the next `load()` re-reads the file from disk.
+    Returns whether anything was actually cached.
+
+    `list_available()` reads the filesystem on every call, so replacing a
+    checkpoint updates the API's "Sẵn sàng" badge immediately — but the
+    *weights* stay whatever this process loaded first, for the life of the
+    process. Without this, dropping in a retrained `.pt` silently keeps serving
+    the old model until someone restarts the server. Exposed to the admin UI as
+    "Tải lại checkpoint".
+    """
+    return _cache.pop((task, arch), None) is not None
+
+
 def load(task: Task, arch: str) -> torch.nn.Module:
     """Lazy-loads and caches a model in eval mode. Raises ModelNotAvailableError
     (mapped to a clean 503 by the router) instead of a raw FileNotFoundError/

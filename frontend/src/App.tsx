@@ -3,6 +3,7 @@ import { Button } from './components/ui/Button';
 import { StateMessage } from './components/ui/StateMessage';
 import { Icon } from './lib/icon';
 import { navFor, titleFor, SIDE_MAP } from './lib/nav';
+import { OTHER_PORTAL_LABEL, OTHER_PORTAL_URL, PORTAL, PORTAL_LABEL, TOKEN_STORAGE_KEY, roleMatchesPortal } from './lib/portal';
 import * as api from './lib/api';
 import { useApiData } from './lib/useApiData';
 import { caseFromApi } from './lib/caseAdapter';
@@ -19,6 +20,7 @@ import { Pipeline } from './pages/Pipeline';
 import { Viewer } from './pages/Viewer';
 import { Report } from './pages/Report';
 import { Annotate } from './pages/Annotate';
+import { CaseReport } from './pages/CaseReport';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { Log } from './pages/Log';
 import { Models } from './pages/Models';
@@ -26,15 +28,15 @@ import { Users } from './pages/Users';
 import { Migration } from './pages/Migration';
 import { Library } from './pages/Library';
 
-const EMPTY_CASE: Case = { id: '', maSo: '', maNam: '2026', hoTen: '', tuoi: '', ketLuan: '', ngayTao: '', status: 'new', gleason: null, primary: null, secondary: null, confidence: null, tumorArea: '—', regionsCount: 0, slides: [] };
+const EMPTY_CASE: Case = { id: '', maSo: '', maNam: '2026', hoTen: '', tuoi: '', ketLuan: '', ngayTao: '', status: 'new', gleason: null, primary: null, secondary: null, gleasonScore: null, confidence: null, slides: [] };
 
-const TOKEN_STORAGE_KEY = 'prostaai_token';
+const DEFAULT_NAV: Nav = PORTAL === 'admin' ? 'adashboard' : 'dashboard';
 
 export default function App() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_STORAGE_KEY));
   const [me, setMe] = useState<MeResponse | null>(null);
   const [hydrating, setHydrating] = useState(true);
-  const [nav, setNav] = useState<Nav>('dashboard');
+  const [nav, setNav] = useState<Nav>(DEFAULT_NAV);
 
   const [casesState, reloadCases] = useApiData(
     () => (token ? api.getCases(token).then((cs) => cs.map(caseFromApi)) : Promise.resolve([])),
@@ -49,10 +51,22 @@ export default function App() {
   const [editing, setEditing] = useState<Case | null>(null);
 
   // Hydrate the session from a token left in localStorage (e.g. after a page refresh).
+  // A token whose role doesn't belong to this portal is dropped rather than used —
+  // it can only get here if VITE_PORTAL changed under an existing browser profile,
+  // but silently running the admin UI off a doctor token (or vice versa) would just
+  // produce a screen full of 403s.
   useEffect(() => {
     if (!token) { setHydrating(false); return; }
     api.getMe(token)
-      .then((m) => { setMe(m); setNav(m.role === 'admin' ? 'adashboard' : 'dashboard'); })
+      .then((m) => {
+        if (!roleMatchesPortal(m.role)) {
+          localStorage.removeItem(TOKEN_STORAGE_KEY);
+          setToken(null);
+          return;
+        }
+        setMe(m);
+        setNav(DEFAULT_NAV);
+      })
       .catch(() => { localStorage.removeItem(TOKEN_STORAGE_KEY); setToken(null); })
       .finally(() => setHydrating(false));
   }, [token]);
@@ -63,7 +77,7 @@ export default function App() {
     localStorage.setItem(TOKEN_STORAGE_KEY, newToken);
     setToken(newToken);
     setMe(newMe);
-    setNav(newMe.role === 'admin' ? 'adashboard' : 'dashboard');
+    setNav(DEFAULT_NAV);
   }
 
   function handleLogout() {
@@ -133,7 +147,9 @@ export default function App() {
   let topActions = null;
   if (nav === 'viewer') topActions = <Button variant="ghost" size="sm" iconLeft={<Icon name="arrow-left" />} onClick={() => go('cases')}>Danh sách</Button>;
   else if (nav === 'dashboard') topActions = <Button variant="primary" size="sm" iconLeft={<Icon name="plus" />} onClick={() => go('upload')}>Phân tích mới</Button>;
-  else if (nav === 'adashboard') topActions = <Button variant="secondary" size="sm" iconLeft={<Icon name="download" />}>Xuất báo cáo hệ thống</Button>;
+  // The admin dashboard had a "Xuất báo cáo hệ thống" button here that was never
+  // wired to anything — no endpoint produces such a report, and the Thư viện
+  // screen already covers real export. Removed rather than left to do nothing.
 
   const noCaseSelected = <StateMessage kind="error">Chưa chọn ca bệnh. Quay lại danh sách ca bệnh.</StateMessage>;
   const noImageSelected = <StateMessage kind="error">Chưa chọn ảnh. Quay lại chi tiết ca bệnh.</StateMessage>;
@@ -143,7 +159,7 @@ export default function App() {
     case 'dashboard':
       screen = casesState.status === 'error'
         ? <StateMessage kind="error">{casesState.message}</StateMessage>
-        : <DoctorDashboard cases={cases} onOpenCase={openCase} onGo={go} />;
+        : <DoctorDashboard cases={cases} token={token} onOpenCase={openCase} onGo={go} onGoResult={goViewer} />;
       break;
     case 'cases':
       screen = casesState.status === 'error'
@@ -152,7 +168,18 @@ export default function App() {
       break;
     case 'caseDetail':
       screen = activeCase
-        ? <CaseDetail case={activeCase} token={token} onBack={() => go('cases')} onEdit={editCase} onGoResult={goViewer} onGoUpload={goUpload} onAnnotate={goAnnotate} onReload={reloadCases} />
+        ? <CaseDetail
+            case={activeCase}
+            token={token}
+            onBack={() => go('cases')}
+            onEdit={editCase}
+            onGoResult={goViewer}
+            onGoUpload={goUpload}
+            onAnnotate={goAnnotate}
+            onReload={reloadCases}
+            onCaseReport={() => go('caseReport')}
+            onDeleteCase={() => { reloadCases(); setActiveCaseId(null); go('cases'); }}
+          />
         : noCaseSelected;
       break;
     case 'caseForm': screen = editing && <CaseForm editing={editing} token={token} onCancel={() => go(editing.dbId ? 'caseDetail' : 'cases')} onSaved={caseSaved} />; break;
@@ -183,6 +210,10 @@ export default function App() {
       ? <Annotate token={token} imageId={annotateImageId} onBack={() => go('caseDetail')} />
       : noCaseSelected;
       break;
+    case 'caseReport': screen = activeCase?.dbId
+      ? <CaseReport token={token} caseId={activeCase.dbId} onBack={() => go('caseDetail')} />
+      : noCaseSelected;
+      break;
     case 'adashboard': screen = <AdminDashboard token={token} onGo={go} />; break;
     case 'alog': screen = <Log token={token} />; break;
     case 'models': screen = <Models token={token} />; break;
@@ -194,14 +225,21 @@ export default function App() {
 
   return (
     <div style={{ display: 'flex', height: '100vh', background: 'var(--surface-page)', fontFamily: 'var(--font-sans)', color: 'var(--text-body)' }}>
-      <aside style={{ width: 248, flexShrink: 0, height: '100%', boxSizing: 'border-box', background: 'var(--white)', borderRight: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', padding: '18px 14px' }}>
+      <aside className="no-print" style={{ width: 248, flexShrink: 0, height: '100%', boxSizing: 'border-box', background: 'var(--white)', borderRight: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', padding: '18px 14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 8px 14px' }}>
           <img src={prostaMark} alt="" style={{ height: 34, width: 34, objectFit: 'contain' }} />
           <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20, color: 'var(--blue-900)', letterSpacing: '-0.02em' }}>Prosta<span style={{ color: 'var(--blue-500)' }}>AI</span></span>
         </div>
-        <div style={{ margin: '0 8px 12px', padding: '7px 10px', borderRadius: 'var(--radius-md)', background: 'var(--blue-50)', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Icon name={role === 'doctor' ? 'stethoscope' : 'shield-check'} size={15} style={{ color: 'var(--blue-600)' }} />
-          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--blue-800)' }}>{role === 'doctor' ? 'Vai trò: Bác sĩ' : 'Vai trò: Quản trị viên'}</span>
+        <div style={{ margin: '0 8px 12px', padding: '7px 10px', borderRadius: 'var(--radius-md)', background: 'var(--blue-50)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Icon name={role === 'doctor' ? 'stethoscope' : 'shield-check'} size={15} style={{ color: 'var(--blue-600)' }} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--blue-800)' }}>{PORTAL_LABEL}</span>
+          </div>
+          {/* Opens in a new tab on the other port — the two sessions no longer evict
+              each other, which is the whole point of the split. */}
+          <a href={OTHER_PORTAL_URL} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 5, fontSize: 11, fontWeight: 500, color: 'var(--blue-600)', textDecoration: 'none' }}>
+            <Icon name="external-link" size={12} /> Mở {OTHER_PORTAL_LABEL}
+          </a>
         </div>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
           {items.map(([key, label, icon]) => {
@@ -222,17 +260,18 @@ export default function App() {
           <button className="tb-ic" onClick={handleLogout} aria-label="Đăng xuất" style={{ width: 30, height: 30 }}><Icon name="log-out" size={16} /></button>
         </div>
       </aside>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <header style={{ height: 60, flexShrink: 0, boxSizing: 'border-box', background: 'var(--white)', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 16, padding: '0 22px' }}>
+      <div className="print-content-col" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <header className="no-print" style={{ height: 60, flexShrink: 0, boxSizing: 'border-box', background: 'var(--white)', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 16, padding: '0 22px' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '.04em', textTransform: 'uppercase', fontWeight: 600 }}>{crumb}</div>
             <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18, color: 'var(--text-strong)', letterSpacing: '-0.01em' }}>{title}</div>
           </div>
+          {/* A help and a notifications icon used to sit here, both from the
+              mockup and neither wired to anything: there is no help content and
+              no notification system. The one real "needs attention" list,
+              flagged second opinions, is already a card on the doctor
+              dashboard. */}
           {topActions}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <button className="tb-ic" aria-label="Trợ giúp"><Icon name="life-buoy" size={18} /></button>
-            <button className="tb-ic" aria-label="Thông báo"><Icon name="bell" size={18} /></button>
-          </div>
         </header>
         <main style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>{screen}</main>
       </div>

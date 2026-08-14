@@ -9,6 +9,7 @@ export interface CaseImage {
   id: string; // display label, "H{image_number}"
   desc: string; // images.description
   dbId?: number; // real images.id — present once backed by the real API (see lib/caseAdapter.ts)
+  magnification?: string | null; // images.magnification
 }
 
 export interface CaseSlide {
@@ -18,10 +19,10 @@ export interface CaseSlide {
   dbId?: number; // real slides.id
 }
 
-// Case/Slide/Image base fields are wired to the real backend (see lib/caseAdapter.ts,
-// lib/api.ts); the AI-derived fields below (status/gleason/primary/.../regionsCount)
-// stay null/placeholder for real cases until the AI pipeline exists — Viewer/Pipeline/
-// Report still render off these as mock-only screens, see CLAUDE.md.
+// Every field here is wired to the real backend (see lib/caseAdapter.ts,
+// lib/api.ts). The summary fields below are computed per request by the
+// backend, not stored — a case that has nothing signed off keeps them null,
+// which is how the list renders an honest "—" rather than a made-up grade.
 export interface Case {
   id: string; // display case id, e.g. "PA-2026-0142"
   maSo: string; // cases.case_code
@@ -31,12 +32,16 @@ export interface Case {
   ketLuan: string; // cases.conclusion
   ngayTao: string; // cases.created_at (dd/mm/yyyy)
   status: 'new' | 'processing' | 'review' | 'reviewed';
-  gleason: GleasonPattern | null; // classification_results summary
-  primary: 3 | 4 | 5 | null; // classification_results.primary_pattern
-  secondary: 3 | 4 | 5 | null; // classification_results.secondary_pattern
-  confidence: number | null; // classification_results.primary_confidence (%)
-  tumorArea: string; // segmentation_results.cancer_area_px (formatted)
-  regionsCount: number;
+  gleason: GleasonPattern | null; // case-level primary pattern, 'benign' when confirmed benign
+  primary: 3 | 4 | 5 | null;
+  secondary: 3 | 4 | 5 | null;
+  gleasonScore: string | null; // "4+3=7", null when nothing is confirmed or all benign
+  confidence: number | null; // the AI's confidence (%), never the doctor's
+  /** ISUP grade from Stage 3 ML fusion (0-5). Available as soon as inference
+   *  completes, no doctor review required. Null when no run has produced a
+   *  Stage 3 result yet. */
+  isupGrade: number | null;
+  isupConfidence: number | null;
   slides: CaseSlide[];
   dbId?: number; // real cases.id — present once backed by the real API
 }
@@ -45,7 +50,7 @@ export type Role = 'doctor' | 'admin';
 
 export type Nav =
   | 'dashboard' | 'cases' | 'caseDetail' | 'caseForm' | 'upload' | 'pipeline' | 'viewer' | 'report'
-  | 'annotate'
+  | 'annotate' | 'caseReport'
   | 'adashboard' | 'alog' | 'models' | 'users' | 'migration' | 'library';
 
 // ---------------------------------------------------------------------------
@@ -106,6 +111,8 @@ export interface ModelInfoApi {
   trained_at: string | null;
   status: string;
   checkpoint_available: boolean;
+  /** Best available model for this task by its own recorded evaluation. */
+  recommended: boolean;
 }
 
 export interface MigrationPreview {
@@ -121,6 +128,32 @@ export interface MigrationImportResult {
   skipped_reasons: string[];
 }
 
+// ---------- migration — legacy ImageCapture SQLite connector ----------
+export interface SqliteCasePreview {
+  case_code: string;
+  case_year: string | null;
+  patient_name: string | null;
+  slide_count: number;
+  image_count: number;
+}
+
+export interface SqliteMigrationPreview {
+  case_count: number;
+  slide_count: number;
+  image_count: number;
+  magnifications_found: string[];
+  cases: SqliteCasePreview[];
+}
+
+export interface SqliteMigrationImportResult {
+  cases_imported: number;
+  cases_skipped: number;
+  slides_imported: number;
+  images_imported: number;
+  images_skipped: number;
+  skipped_reasons: string[];
+}
+
 // ---------- cases / slides / images (backend/app/schemas.py) ----------
 export interface ApiImage {
   id: number;
@@ -131,13 +164,24 @@ export interface ApiImage {
   height_px: number | null;
   format: string | null;
   source: 'upload' | 'live_capture' | 'legacy_import';
+  magnification: '4x' | '10x' | '20x' | '40x' | null;
   created_at: string;
+}
+
+export interface ApiPreprocessing {
+  image_id: number;
+  is_blurry: boolean;
+  quality_score: number | null;
+  has_normalized_image: boolean;
+  has_tissue_mask: boolean;
+  processed_at: string;
 }
 
 export interface ApiSlide {
   id: number;
   case_id: number;
   slide_number: number;
+  legacy_slide_label: string | null;
   images: ApiImage[];
 }
 
@@ -160,6 +204,23 @@ export interface ApiAnnotation {
 }
 
 export interface ApiCase {
+  /** Computed per request by the backend from inference runs + reviews. */
+  status: 'new' | 'processing' | 'review' | 'reviewed';
+  /** Case-level Gleason over the confirmed reviews (see _attach_derived).
+   *  Null score + images_confirmed > 0 means "confirmed, all benign", which is
+   *  a finding — not the same as nothing having been signed off yet. */
+  primary_pattern: number | null;
+  secondary_pattern: number | null;
+  total_score: number | null;
+  images_confirmed: number;
+  /** The AI's confidence (0-100), not the doctor's — label it as AI wherever
+   *  it is shown. Averaged over the latest completed run per image. */
+  ai_confidence: number | null;
+  /** ISUP grade (0-5) from Stage 3 ML fusion — averaged over the latest
+   *  completed run per image in the case, rounded to the nearest integer.
+   *  Null when no Stage 3 result exists for any image. */
+  isup_grade: number | null;
+  isup_confidence: number | null;
   id: number;
   case_code: string;
   case_year: string | null;
@@ -191,7 +252,17 @@ export interface ApiClassificationResult {
   primary_confidence: number | null;
   secondary_pattern: 3 | 4 | 5 | null;
   secondary_confidence: number | null;
-  has_heatmap: boolean;
+  created_at: string;
+}
+
+// Stage 3 — WSI-level ML fusion (MLPClassifier trained on 8 classification-only
+// features from densenet121+efficientnet_b0, predicts ISUP grade 0-5 directly).
+export interface ApiStage3Result {
+  id: number;
+  run_id: number;
+  isup_grade: 0 | 1 | 2 | 3 | 4 | 5 | null;
+  confidence: number | null;
+  classification_pct: Record<string, Record<string, number>> | null;
   created_at: string;
 }
 
@@ -210,6 +281,7 @@ export interface ApiInferenceRun {
   created_at: string;
   segmentation: ApiSegmentationResult | null;
   classification: ApiClassificationResult | null;
+  stage3: ApiStage3Result | null;
 }
 
 export interface InferenceTriggerRequest {
@@ -233,6 +305,9 @@ export interface ApiDiagnosticReview {
   lvi_present: boolean;
   lvi_notes: string | null;
   free_notes: string | null;
+  tumor_length_mm: number | null;
+  needs_second_opinion: boolean;
+  second_opinion_notes: string | null;
   status: 'draft' | 'confirmed';
   reviewed_by: number | null;
   confirmed_at: string | null;
@@ -249,4 +324,97 @@ export interface DiagnosticReviewUpdate {
   lvi_present?: boolean | null;
   lvi_notes?: string | null;
   free_notes?: string | null;
+  tumor_length_mm?: number | null;
+  needs_second_opinion?: boolean | null;
+  second_opinion_notes?: string | null;
+  cancer_area_percentage?: number | null;
 }
+
+export interface FlaggedReview {
+  review_id: number;
+  image_id: number;
+  case_id: number;
+  case_label: string;
+  slide_label: string;
+  second_opinion_notes: string | null;
+  created_at: string;
+}
+
+export interface Calibration {
+  magnification: '4x' | '10x' | '20x' | '40x';
+  um_per_pixel: number;
+  updated_at: string;
+}
+
+// ---------- doctor dashboard stats (backend/app/schemas/stats.py) ----------
+export interface PatternCount {
+  label: string;
+  pattern: 3 | 4 | 5 | null;
+  count: number;
+  percentage: number;
+}
+
+export interface DoctorStats {
+  new_cases_today: number;
+  pending_reviews: number;
+  confirmed_reviews: number;
+  avg_ai_confidence: number | null;
+  pattern_distribution: PatternCount[];
+}
+
+// ---------- case-level Gleason aggregation (backend/app/schemas/cases.py) ----------
+export interface CaseGleasonPerImage {
+  image_id: number;
+  primary_pattern: 3 | 4 | 5 | null;
+  secondary_pattern: 3 | 4 | 5 | null;
+  cancer_area_percentage: number | null;
+}
+
+export interface CaseGleason {
+  case_id: number;
+  primary_pattern: 3 | 4 | 5 | null;
+  secondary_pattern: 3 | 4 | 5 | null;
+  total_score: number | null;
+  grade_group: number | null;
+  images_confirmed: number;
+  images_total: number;
+  per_image: CaseGleasonPerImage[];
+}
+
+export interface CaseReportImage {
+  image_id: number;
+  slide_label: string;
+  image_number: number;
+  magnification: string | null;
+  primary_pattern: 3 | 4 | 5 | null;
+  secondary_pattern: 3 | 4 | 5 | null;
+  total_score: number | null;
+  grade_group: number | null;
+  cancer_area_percentage: number | null;
+  tumor_length_mm: number | null;
+  biopsy_location: string | null;
+  pni_present: boolean;
+  pni_notes: string | null;
+  lvi_present: boolean;
+  lvi_notes: string | null;
+  free_notes: string | null;
+  needs_second_opinion: boolean;
+  second_opinion_notes: string | null;
+  confirmed_at: string | null;
+  reviewed_by_name: string | null;
+}
+
+export interface CaseReport {
+  case_id: number;
+  case_code: string;
+  case_year: string | null;
+  patient_name: string | null;
+  patient_age: number | null;
+  conclusion: string | null;
+  created_at: string;
+  gleason: CaseGleason;
+  images: CaseReportImage[];
+  images_total: number;
+  signed_by: string[];
+}
+

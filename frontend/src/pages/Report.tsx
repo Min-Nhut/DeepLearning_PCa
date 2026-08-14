@@ -84,8 +84,10 @@ export function Report({ token, imageId, caseLabel, patientName, onBack }: {
             </div>
             <div style={{ flex: 1 }} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
-              <Badge tone="success" dot>Độ tin cậy AI {clf?.primary_confidence != null ? `${Math.round(clf.primary_confidence)}%` : '—'}</Badge>
+              <Badge tone="success" dot>Độ tin cậy AI {clf?.primary_confidence != null ? `${Math.round(clf.primary_confidence * 100)}%` : '—'}</Badge>
+              {review.needs_second_opinion && <Badge tone="warning" dot>Cần hội chẩn</Badge>}
               <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{review.cancer_area_percentage != null ? `${review.cancer_area_percentage.toFixed(1)}% diện tích ung thư` : 'Chưa có diện tích ung thư'}</span>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{review.tumor_length_mm != null ? `${review.tumor_length_mm.toFixed(2)} mm chiều dài mô ung thư` : 'Chưa có chiều dài mô ung thư'}</span>
             </div>
           </div>
           <Section
@@ -94,6 +96,9 @@ export function Report({ token, imageId, caseLabel, patientName, onBack }: {
           />
           {(review.pni_notes || review.lvi_notes) && (
             <Section title="Ghi chú PNI/LVI" body={[review.pni_notes, review.lvi_notes].filter(Boolean).join(' — ')} />
+          )}
+          {review.needs_second_opinion && review.second_opinion_notes && (
+            <Section title="Lý do cần hội chẩn" body={review.second_opinion_notes} />
           )}
           <Section title="Nhận xét" body={review.free_notes || 'Kết quả đã được bác sĩ xem xét. Đầu ra AI được dùng như công cụ hỗ trợ quyết định và không thay thế phán đoán của bác sĩ.'} />
           <div style={{ marginTop: 28, paddingTop: 16, borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>

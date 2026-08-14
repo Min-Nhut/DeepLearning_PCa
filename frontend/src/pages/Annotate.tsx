@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import type OpenSeadragon from 'openseadragon';
 import { Button } from '../components/ui/Button';
-import { IconButton } from '../components/ui/IconButton';
 import { GleasonChip } from '../components/pathology/GleasonChip';
 import { Disclaimer } from '../components/Histology';
 import { StateMessage } from '../components/ui/StateMessage';
 import { Icon } from '../lib/icon';
 import { useApiData } from '../lib/useApiData';
 import * as api from '../lib/api';
-import type { ApiAnnotation, Point } from '../types';
+import { createDeepZoomViewer, fullImageRect, openDeepZoom } from '../lib/dzi';
+import type { ApiAnnotation, ApiImage, Point } from '../types';
 
 type Pattern = 3 | 4 | 5 | null;
 type Mode = 'idle' | 'drawing' | 'pending';
@@ -61,10 +63,19 @@ export function Annotate({ token, imageId, onBack }: {
   imageId: number;
   onBack: () => void;
 }) {
-  const outerRef = useRef<HTMLDivElement>(null);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const [imgUrl, setImgUrl] = useState<string | null>(null);
-  const [imgFailed, setImgFailed] = useState(false);
+  // Deep-zoom (Google Maps-style) tile viewer — same mechanism as Viewer.tsx (see
+  // lib/dzi.ts / backend/app/dzi.py): real detail loads as the doctor zooms in,
+  // instead of CSS-scaling an already-downsized raster.
+  const osdContainerRef = useRef<HTMLDivElement>(null);
+  const viewerRef = useRef<OpenSeadragon.Viewer | null>(null);
+  const [osdReady, setOsdReady] = useState(false);
+  const [osdError, setOsdError] = useState<string | null>(null);
+  const [imageMeta, setImageMeta] = useState<ApiImage | null>(null);
+  // One overlay container for the whole drawing SVG (saved regions + vertex
+  // handles + in-progress trace) — content is portaled in from React below, so
+  // all the existing polygon/circle JSX is unchanged; only how it's positioned
+  // (OSD overlay vs. CSS-transform wrapper) changes.
+  const [drawOverlayEl] = useState(() => document.createElement('div'));
 
   const [annosState, reload] = useApiData(() => api.listAnnotations(token, imageId), [token, imageId]);
   const annotations = annosState.status === 'data' ? annosState.data : [];
@@ -80,24 +91,53 @@ export function Annotate({ token, imageId, onBack }: {
   const [editing, setEditing] = useState<ApiAnnotation | null>(null);
   const [editPattern, setEditPattern] = useState<Pattern>(null);
   const [editNote, setEditNote] = useState('');
-
-  const [zoom, setZoom] = useState(100);
-  const [zoomOrigin, setZoomOrigin] = useState({ x: 50, y: 50 });
-  const [pickingZoomPoint, setPickingZoomPoint] = useState(false);
+  const [editPoints, setEditPoints] = useState<Point[]>([]);
+  const [shapeEditing, setShapeEditing] = useState(false);
+  const [draggingVertexIndex, setDraggingVertexIndex] = useState<number | null>(null);
 
   useEffect(() => {
-    let objectUrl: string | null = null;
-    let cancelled = false;
-    setImgUrl(null);
-    setImgFailed(false);
-    api.getImageBlobUrl(token, imageId, 'view')
-      .then((u) => { if (!cancelled) { objectUrl = u; setImgUrl(u); } })
-      .catch(() => { if (!cancelled) setImgFailed(true); });
+    if (!osdContainerRef.current) return;
+    setOsdReady(false);
+    setOsdError(null);
+    const viewer = createDeepZoomViewer(osdContainerRef.current, token);
+    viewerRef.current = viewer;
+    const handleOpen = () => setOsdReady(true);
+    const handleOpenFailed = () => setOsdError('Không tải được ảnh độ phân giải cao.');
+    viewer.addHandler('open', handleOpen);
+    viewer.addHandler('open-failed', handleOpenFailed);
+    openDeepZoom(viewer, imageId);
     return () => {
-      cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      viewer.removeHandler('open', handleOpen);
+      viewer.removeHandler('open-failed', handleOpenFailed);
+      viewer.destroy();
+      viewerRef.current = null;
+      setOsdReady(false);
     };
   }, [token, imageId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setImageMeta(null);
+    api.getImage(token, imageId).then((im) => { if (!cancelled) setImageMeta(im); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [token, imageId]);
+
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || !osdReady || !imageMeta?.width_px || !imageMeta?.height_px) return;
+    const rect = fullImageRect(imageMeta.width_px, imageMeta.height_px);
+    viewer.addOverlay({ element: drawOverlayEl, location: rect });
+    return () => {
+      try { viewer.removeOverlay(drawOverlayEl); } catch { /* viewer already destroyed */ }
+    };
+  }, [osdReady, imageMeta?.width_px, imageMeta?.height_px, drawOverlayEl]);
+
+  // Disable OSD's own drag-to-pan exactly while we're capturing a drag gesture
+  // ourselves (tracing a new shape, or dragging a vertex handle) — otherwise the
+  // same drag would fight between "draw" and "pan the viewport".
+  useEffect(() => {
+    viewerRef.current?.setMouseNavEnabled(!(mode === 'drawing' || draggingVertexIndex !== null));
+  }, [mode, draggingVertexIndex]);
 
   function startDrawing() {
     setMode('drawing');
@@ -113,45 +153,34 @@ export function Annotate({ token, imageId, onBack }: {
     setDraftNote('');
   }
 
-  function handleContainerClick(e: React.MouseEvent<HTMLDivElement>) {
-    if (!pickingZoomPoint) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = clamp(((e.clientX - rect.left) / rect.width) * 100);
-    const y = clamp(((e.clientY - rect.top) / rect.height) * 100);
-    setZoomOrigin({ x, y });
-    setPickingZoomPoint(false);
-  }
-
-  function pointFromWrapper(e: { clientX: number; clientY: number }): Point {
-    const rect = wrapperRef.current!.getBoundingClientRect();
+  // The overlay <svg> is sized/positioned by OSD to exactly cover the image
+  // (see the addOverlay effect above), so its own live rect maps a screen point
+  // to 0-100% image space correctly at any zoom/pan level — same technique the
+  // CSS-transform wrapper used before, just a different element supplies the rect.
+  function pointFromOverlay(e: { clientX: number; clientY: number }): Point {
+    const rect = drawOverlayEl.getBoundingClientRect();
     return {
       x: clamp(((e.clientX - rect.left) / rect.width) * 100),
       y: clamp(((e.clientY - rect.top) / rect.height) * 100),
     };
   }
 
-  function handleSvgBackgroundClick() {
-    if (pickingZoomPoint) return;
-    if (mode === 'idle') setSelectedId(null);
-  }
-
   function handlePolygonClick(e: React.MouseEvent, a: ApiAnnotation) {
-    if (pickingZoomPoint) return;
     if (mode !== 'idle') return;
     e.stopPropagation();
     setSelectedId(a.id);
   }
 
   function handlePointerDown(e: React.PointerEvent<SVGSVGElement>) {
-    if (pickingZoomPoint || mode !== 'drawing') return;
+    if (mode !== 'drawing') return;
     e.currentTarget.setPointerCapture(e.pointerId);
     setIsTracing(true);
-    setDraftPoints([pointFromWrapper(e)]);
+    setDraftPoints([pointFromOverlay(e)]);
   }
 
   function handlePointerMove(e: React.PointerEvent<SVGSVGElement>) {
     if (!isTracing) return;
-    const p = pointFromWrapper(e);
+    const p = pointFromOverlay(e);
     setDraftPoints((pts) => {
       const last = pts[pts.length - 1];
       if (last && Math.hypot(p.x - last.x, p.y - last.y) < MIN_DRAG_DISTANCE) return pts;
@@ -164,9 +193,30 @@ export function Annotate({ token, imageId, onBack }: {
     setIsTracing(false);
     e.currentTarget.releasePointerCapture(e.pointerId);
     if (draftPoints.length >= 3) {
-      setMode('pending');
+      autoSaveNewRegion(draftPoints);
     } else {
       setDraftPoints([]);
+    }
+  }
+
+  // Persist the traced shape the instant drawing finishes — not after the doctor
+  // also picks a pattern/note — so a crash or interruption mid-decision never loses
+  // the shape itself. Falls back to the manual "pending" flow (form still open,
+  // shape still visible) only if the request itself fails.
+  async function autoSaveNewRegion(points: Point[]) {
+    setMode('pending');
+    setDraftPoints(points);
+    setSaving(true);
+    try {
+      const created = await api.createAnnotation(token, imageId, { points, gleason_pattern: null });
+      await reload();
+      setMode('idle');
+      setDraftPoints([]);
+      startEdit(created);
+    } catch {
+      // keep the pending shape + form so the doctor can retry without redrawing
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -190,20 +240,40 @@ export function Annotate({ token, imageId, onBack }: {
     setEditing(a);
     setEditPattern(a.gleason_pattern);
     setEditNote(a.note ?? '');
+    setEditPoints(a.points);
+    setShapeEditing(false);
   }
 
   async function handleSaveEdit() {
     if (!editing) return;
     setSaving(true);
     try {
-      await api.updateAnnotation(token, imageId, editing.id, { gleason_pattern: editPattern, note: editNote || null });
+      await api.updateAnnotation(token, imageId, editing.id, { gleason_pattern: editPattern, note: editNote || null, points: editPoints });
       setEditing(null);
+      setShapeEditing(false);
       reload();
     } catch {
       // keep the edit form open so the doctor can retry
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleVertexPointerDown(e: React.PointerEvent<SVGCircleElement>, index: number) {
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDraggingVertexIndex(index);
+  }
+
+  function handleVertexPointerMove(e: React.PointerEvent<SVGCircleElement>) {
+    if (draggingVertexIndex === null) return;
+    const p = pointFromOverlay(e);
+    setEditPoints((pts) => pts.map((pt, i) => (i === draggingVertexIndex ? p : pt)));
+  }
+
+  function handleVertexPointerUp(e: React.PointerEvent<SVGCircleElement>) {
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    setDraggingVertexIndex(null);
   }
 
   async function handleDelete(a: ApiAnnotation) {
@@ -213,87 +283,90 @@ export function Annotate({ token, imageId, onBack }: {
     reload();
   }
 
-  const imageArea = (
-    <div
-      ref={outerRef}
-      style={{ position: 'relative', width: '100%', overflow: 'hidden', cursor: pickingZoomPoint ? 'crosshair' : 'default' }}
-      onClick={handleContainerClick}
+  const drawSvg = (
+    <svg
+      viewBox="0 0 100 100" preserveAspectRatio="none"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      style={{
+        width: '100%', height: '100%', touchAction: 'none',
+        // Only capture pointer events ourselves while actively tracing a new
+        // shape — otherwise leave the background transparent to input so OSD's
+        // own drag-to-pan/scroll-to-zoom keeps working. Individual polygons/
+        // vertex handles re-enable pointer events on themselves below so they
+        // stay clickable/draggable even when the svg background doesn't.
+        pointerEvents: mode === 'drawing' ? 'auto' : 'none',
+        cursor: mode === 'drawing' ? 'crosshair' : 'default',
+      }}
     >
-      <div
-        ref={wrapperRef}
-        style={{ position: 'relative', width: '100%', transformOrigin: `${zoomOrigin.x}% ${zoomOrigin.y}%`, transform: `scale(${zoom / 100})`, transition: 'transform var(--dur-fast) var(--ease-standard)' }}
-      >
-        {imgFailed ? (
-          <StateMessage kind="error">Không tải được ảnh.</StateMessage>
-        ) : imgUrl ? (
-          <img src={imgUrl} alt="" style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 'var(--radius-lg)' }} />
-        ) : (
+      {annotations.map((a) => {
+        const isShapeEditingThis = shapeEditing && editing?.id === a.id;
+        const pts = isShapeEditingThis ? editPoints : a.points;
+        return (
+          <polygon
+            key={a.id}
+            points={pointsToAttr(pts)}
+            onClick={(e) => handlePolygonClick(e, a)}
+            style={{ cursor: mode === 'idle' ? 'pointer' : undefined, pointerEvents: 'auto' }}
+            fill={colorFor(a.gleason_pattern)}
+            fillOpacity={selectedId === a.id || isShapeEditingThis ? 0.35 : 0.18}
+            stroke={colorFor(a.gleason_pattern)}
+            strokeWidth={selectedId === a.id || isShapeEditingThis ? 0.6 : 0.35}
+            vectorEffect="non-scaling-stroke"
+          />
+        );
+      })}
+      {shapeEditing && editing && editPoints.map((p, i) => (
+        <circle
+          key={i}
+          cx={p.x} cy={p.y} r={1.4}
+          fill="var(--white)" stroke="var(--blue-500)" strokeWidth={0.5}
+          vectorEffect="non-scaling-stroke"
+          style={{ cursor: 'grab', touchAction: 'none', pointerEvents: 'auto' }}
+          onPointerDown={(e) => handleVertexPointerDown(e, i)}
+          onPointerMove={handleVertexPointerMove}
+          onPointerUp={handleVertexPointerUp}
+        />
+      ))}
+      {mode === 'drawing' && draftPoints.length > 0 && (
+        <polyline
+          points={pointsToAttr(draftPoints)}
+          fill="none"
+          stroke="var(--blue-500)"
+          strokeWidth={0.6}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      )}
+      {mode === 'pending' && draftPoints.length > 0 && (
+        <polygon
+          points={pointsToAttr(draftPoints)}
+          fill={colorFor(draftPattern)}
+          fillOpacity={0.25}
+          stroke={colorFor(draftPattern)}
+          strokeWidth={0.5}
+          vectorEffect="non-scaling-stroke"
+        />
+      )}
+    </svg>
+  );
+
+  const imageArea = (
+    <div style={{ position: 'relative', width: '100%', height: 520, borderRadius: 'var(--radius-lg)', overflow: 'hidden', background: '#111' }}>
+      <div ref={osdContainerRef} style={{ position: 'absolute', inset: 0 }} />
+      {(!osdReady && !osdError) && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <StateMessage kind="loading" />
-        )}
-        <svg
-          viewBox="0 0 100 100" preserveAspectRatio="none"
-          onClick={handleSvgBackgroundClick}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', touchAction: 'none', cursor: mode === 'drawing' ? 'crosshair' : 'default' }}
-        >
-          {annotations.map((a) => (
-            <polygon
-              key={a.id}
-              points={pointsToAttr(a.points)}
-              onClick={(e) => handlePolygonClick(e, a)}
-              style={{ cursor: mode === 'idle' ? 'pointer' : undefined }}
-              fill={colorFor(a.gleason_pattern)}
-              fillOpacity={selectedId === a.id ? 0.35 : 0.18}
-              stroke={colorFor(a.gleason_pattern)}
-              strokeWidth={selectedId === a.id ? 0.6 : 0.35}
-              vectorEffect="non-scaling-stroke"
-            />
-          ))}
-          {mode === 'drawing' && draftPoints.length > 0 && (
-            <polyline
-              points={pointsToAttr(draftPoints)}
-              fill="none"
-              stroke="var(--blue-500)"
-              strokeWidth={0.6}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              vectorEffect="non-scaling-stroke"
-            />
-          )}
-          {mode === 'pending' && draftPoints.length > 0 && (
-            <polygon
-              points={pointsToAttr(draftPoints)}
-              fill={colorFor(draftPattern)}
-              fillOpacity={0.25}
-              stroke={colorFor(draftPattern)}
-              strokeWidth={0.5}
-              vectorEffect="non-scaling-stroke"
-            />
-          )}
-        </svg>
-      </div>
-      <div style={{
-        position: 'absolute', left: `${zoomOrigin.x}%`, top: `${zoomOrigin.y}%`, transform: 'translate(-50%, -50%)',
-        color: pickingZoomPoint ? 'var(--blue-500)' : 'rgba(0,0,0,.3)', pointerEvents: 'none',
-      }}>
-        <Icon name="crosshair" size={18} />
-      </div>
-      {pickingZoomPoint && (
-        <div style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(30,143,230,.92)', color: '#fff', fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 'var(--radius-md)' }}>
-          Nhấp vào ảnh để đặt tâm phóng to
         </div>
       )}
-      <div style={{ position: 'absolute', bottom: 12, right: 12, display: 'flex', flexDirection: 'column', gap: 6, background: 'rgba(255,255,255,.85)', backdropFilter: 'blur(8px)', padding: 6, borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-md)', border: '1px solid var(--border-subtle)' }}>
-        <IconButton
-          label="Chọn điểm phóng to" active={pickingZoomPoint}
-          onClick={(e) => { e.stopPropagation(); setPickingZoomPoint((v) => !v); }}
-        ><Icon name="crosshair" /></IconButton>
-        <IconButton label="Phóng to" onClick={(e) => { e.stopPropagation(); setZoom((z) => Math.min(300, z + 25)); }}><Icon name="plus" /></IconButton>
-        <div style={{ textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>{zoom}%</div>
-        <IconButton label="Thu nhỏ" onClick={(e) => { e.stopPropagation(); setZoom((z) => Math.max(50, z - 25)); }}><Icon name="minus" /></IconButton>
-      </div>
+      {osdError && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <StateMessage kind="error">{osdError}</StateMessage>
+        </div>
+      )}
+      {osdReady && imageMeta?.width_px && createPortal(drawSvg, drawOverlayEl)}
     </div>
   );
 
@@ -334,6 +407,13 @@ export function Annotate({ token, imageId, onBack }: {
         {editing && (
           <div style={{ padding: 20, borderBottom: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-strong)' }}>Sửa vùng</div>
+            <Button
+              variant={shapeEditing ? 'secondary' : 'ghost'} size="sm" fullWidth
+              iconLeft={<Icon name="move" />}
+              onClick={() => setShapeEditing((v) => !v)}
+            >
+              {shapeEditing ? 'Đang sửa hình dạng — kéo các điểm neo' : 'Sửa hình dạng'}
+            </Button>
             <PatternPicker value={editPattern} onChange={setEditPattern} />
             <textarea
               placeholder="Ghi chú…" value={editNote} onChange={(e) => setEditNote(e.target.value)} rows={2}
@@ -341,7 +421,7 @@ export function Annotate({ token, imageId, onBack }: {
             />
             <div style={{ display: 'flex', gap: 8 }}>
               <Button variant="accent" size="sm" fullWidth disabled={saving} onClick={handleSaveEdit}>{saving ? 'Đang lưu…' : 'Lưu'}</Button>
-              <Button variant="ghost" size="sm" fullWidth onClick={() => setEditing(null)}>Hủy</Button>
+              <Button variant="ghost" size="sm" fullWidth onClick={() => { setEditing(null); setShapeEditing(false); }}>Hủy</Button>
             </div>
           </div>
         )}
