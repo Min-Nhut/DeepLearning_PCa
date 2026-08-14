@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 860" width="1440" height="860" font-family="Segoe UI, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#42536b"/></marker><marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10" fill="none" stroke="#42536b" stroke-width="1.4"/></marker></defs>
+<rect width="1440" height="860" fill="#ffffff"/>
+<text x="720" y="32" text-anchor="middle" font-size="18" font-weight="700" fill="#12263f">Sơ đồ phân quyền và tách hai cổng truy cập</text>
+<rect x="45" y="70" width="380" height="330" rx="8" fill="#f7f9fc" stroke="#d8e0ea" stroke-dasharray="5 4"/>
+<text x="59" y="90" font-size="12" font-weight="700" fill="#42536b">TRÌNH DUYỆT — hai origin, hai phiên độc lập</text>
+<rect x="70" y="112" width="330" height="116" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="235.0" y="158.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">http://localhost:5173</text>
+<text x="235.0" y="174.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">Cổng Bác sĩ</text>
+<text x="235.0" y="190.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">localStorage: prostaai_token_doctor</text>
+<rect x="70" y="252" width="330" height="116" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="235.0" y="298.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">http://localhost:5174</text>
+<text x="235.0" y="314.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">Cổng Quản trị</text>
+<text x="235.0" y="330.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">localStorage: prostaai_token_admin</text>
+<polyline points="400,170 520,170 520,300" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<polyline points="400,310 520,310" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="432" y="160" text-anchor="start" font-size="10" font-weight="400" fill="#6b7c92">HTTPS/JSON</text>
+<rect x="500" y="70" width="420" height="660" rx="8" fill="#f7f9fc" stroke="#d8e0ea" stroke-dasharray="5 4"/>
+<text x="514" y="90" font-size="12" font-weight="700" fill="#42536b">MÁY CHỦ — chuỗi kiểm tra trên mọi yêu cầu</text>
+<rect x="525" y="112" width="370" height="62" rx="6" fill="#eef7f0" stroke="#2f6f4f" stroke-width="1.5"/>
+<text x="710.0" y="139.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Danh sách CORS cho phép</text>
+<text x="710.0" y="155.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">chỉ :5173 và :5174 — origin khác bị từ chối</text>
+<polyline points="710,174 710,200" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<rect x="525" y="200" width="370" height="62" rx="6" fill="#eef7f0" stroke="#2f6f4f" stroke-width="1.5"/>
+<text x="710.0" y="227.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">HTTPBearer — đọc header Authorization</text>
+<text x="710.0" y="243.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">thiếu hoặc sai định dạng → 401</text>
+<polyline points="710,262 710,288" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<rect x="525" y="288" width="370" height="74" rx="6" fill="#eef7f0" stroke="#2f6f4f" stroke-width="1.5"/>
+<text x="710.0" y="321.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Giải mã JWT (HS256, JWT_SECRET)</text>
+<text x="710.0" y="337.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">hết hạn hoặc chữ ký sai → 401</text>
+<polyline points="710,362 710,388" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<rect x="525" y="388" width="370" height="74" rx="6" fill="#eef7f0" stroke="#2f6f4f" stroke-width="1.5"/>
+<text x="710.0" y="421.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">get_current_user — nạp người dùng</text>
+<text x="710.0" y="437.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">tài khoản bị khóa → 401</text>
+<polyline points="710,462 710,492" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<path d="M 710 492 L 850 546 L 710 600 L 570 546 z" fill="#fdf3e3" stroke="#b8860b" stroke-width="1.5"/>
+<text x="710" y="542" text-anchor="middle" font-size="11" font-weight="700" fill="#12263f">Tuyến có gắn</text>
+<text x="710" y="558" text-anchor="middle" font-size="11" font-weight="700" fill="#12263f">require_admin?</text>
+<rect x="525" y="630" width="370" height="84" rx="6" fill="#fff5f5" stroke="#d98a8a" stroke-width="1.5"/>
+<text x="710.0" y="652.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Ngoại lệ — tuyến công khai</text>
+<text x="710.0" y="668.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">POST /api/auth/login không qua HTTPBearer;</text>
+<text x="710.0" y="684.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">khóa 15 phút sau 5 lần sai theo tên</text>
+<text x="710.0" y="700.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">đăng nhập → 429</text>
+<rect x="940" y="70" width="470" height="660" rx="8" fill="#f7f9fc" stroke="#d8e0ea" stroke-dasharray="5 4"/>
+<text x="954" y="90" font-size="12" font-weight="700" fill="#42536b">TÀI NGUYÊN</text>
+<rect x="965" y="112" width="420" height="130" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="1175.0" y="157.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Mọi vai trò đã đăng nhập</text>
+<text x="1175.0" y="173.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">/api/auth · /api/cases · /api/images</text>
+<text x="1175.0" y="189.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">/api/reviews · /api/models · /api/stats</text>
+<text x="1175.0" y="205.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">GET /api/calibration</text>
+<rect x="965" y="330" width="420" height="130" rx="6" fill="#fdf3e3" stroke="#b8860b" stroke-width="1.5"/>
+<text x="1175.0" y="375.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Chỉ vai trò admin</text>
+<text x="1175.0" y="391.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">/api/admin/* — người dùng, nhật ký,</text>
+<text x="1175.0" y="407.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">mô hình, di trú, xuất thư viện,</text>
+<text x="1175.0" y="423.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">PUT /api/admin/calibration</text>
+<rect x="965" y="540" width="420" height="96" rx="6" fill="#fff5f5" stroke="#d98a8a" stroke-width="1.5"/>
+<text x="1175.0" y="576.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Vai trò không phải admin</text>
+<text x="1175.0" y="592.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">→ 403 Forbidden, kể cả khi giao diện</text>
+<text x="1175.0" y="608.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">vẫn hiển thị đường dẫn tới màn hình đó</text>
+<line x1="850" y1="546" x2="935" y2="546" stroke="#42536b" stroke-width="1.4"/>
+<polyline points="935,546 935,177 965,177" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="945" y="200" text-anchor="start" font-size="10.5" fill="#5a6b82">không · 200 OK</text>
+<polyline points="935,546 935,395 965,395" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="945" y="418" text-anchor="start" font-size="10.5" fill="#5a6b82">có, role = admin · 200 OK</text>
+<polyline points="935,546 935,588 965,588" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="945" y="610" text-anchor="start" font-size="10.5" fill="#5a6b82">có, role ≠ admin · 403</text>
+<path d="M 45 430 h 430 v 82 l -12 12 h -418 z" fill="#fffbe9" stroke="#d9c98a"/>
+<text x="57" y="450" font-size="10.5" fill="#6b5b23">Tách cổng giải quyết xung đột PHIÊN LÀM VIỆC, không phải</text>
+<text x="57" y="466" font-size="10.5" fill="#6b5b23">kiểm soát truy cập: hai origin nên localStorage tách biệt, mở</text>
+<text x="57" y="482" font-size="10.5" fill="#6b5b23">đồng thời hai vai trò không còn ghi đè token của nhau.</text>
+<text x="57" y="498" font-size="10.5" fill="#6b5b23">Hai cổng dựng từ cùng một mã nguồn và ship cùng một gói —</text>
+<text x="57" y="514" font-size="10.5" fill="#6b5b23">quyền thật do máy chủ cưỡng chế trên từng lời gọi API.</text>
+<path d="M 45 580 h 430 v 34 l -12 12 h -418 z" fill="#f4f7fb" stroke="#c6d3e2"/>
+<text x="57" y="600" font-size="10.5" fill="#3d4f66">Mô hình phân quyền phẳng, đúng hai vai trò (user / admin).</text>
+<text x="57" y="616" font-size="10.5" fill="#3d4f66">Không có quyền sở hữu ca bệnh theo từng bác sĩ.</text>
+</svg>

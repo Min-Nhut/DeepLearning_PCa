@@ -82,7 +82,7 @@ export function Login({ onLoggedIn }: { onLoggedIn: (token: string, me: MeRespon
           <Button variant="primary" fullWidth iconLeft={<Icon name="log-in" />} onClick={handleLogin} disabled={loading}>
             {loading ? 'Đang đăng nhập…' : 'Đăng nhập'}
           </Button>
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', margin: 0 }}>Không gian bảo mật · Mã hóa mật khẩu BCrypt</p>
+
         </div>
       </div>
       <div style={{ position: 'relative', background: 'linear-gradient(150deg, var(--blue-950), var(--blue-700))', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 8%', color: '#fff', overflow: 'hidden' }}>

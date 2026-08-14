@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1380 1280" width="1380" height="1280" font-family="Segoe UI, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#42536b"/></marker></defs>
+<rect width="1380" height="1280" fill="#ffffff"/>
+<text x="690" y="32" text-anchor="middle" font-size="17" font-weight="700" fill="#12263f">Biểu đồ tuần tự — Lập đánh giá, xác nhận và tổng hợp điểm Gleason cấp ca</text>
+<text x="690" y="52" text-anchor="middle" font-size="11" fill="#6b7c92">Kết quả AI là chỉ đọc; bản đánh giá là bản sao có thể sửa của bác sĩ</text>
+<rect x="50.0" y="82" width="200" height="34" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="150.0" y="102" text-anchor="middle" font-size="11.5" font-weight="700" fill="#12263f">Bác sĩ</text>
+<line x1="150.0" y1="116" x2="150.0" y2="1256" stroke="#c6d3e2" stroke-width="1.2" stroke-dasharray="4 4"/>
+<rect x="410.0" y="82" width="200" height="48" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="510.0" y="102" text-anchor="middle" font-size="11.5" font-weight="700" fill="#12263f">Giao diện</text>
+<text x="510.0" y="116" text-anchor="middle" font-size="10" font-weight="400" fill="#3d4f66">Viewer.tsx</text>
+<line x1="510.0" y1="130" x2="510.0" y2="1256" stroke="#c6d3e2" stroke-width="1.2" stroke-dasharray="4 4"/>
+<rect x="770.0" y="82" width="200" height="48" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="870.0" y="102" text-anchor="middle" font-size="11.5" font-weight="700" fill="#12263f">API</text>
+<text x="870.0" y="116" text-anchor="middle" font-size="10" font-weight="400" fill="#3d4f66">reviews.py · cases.py</text>
+<line x1="870.0" y1="130" x2="870.0" y2="1256" stroke="#c6d3e2" stroke-width="1.2" stroke-dasharray="4 4"/>
+<rect x="1130.0" y="82" width="200" height="34" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="1230.0" y="102" text-anchor="middle" font-size="11.5" font-weight="700" fill="#12263f">CSDL SQLite</text>
+<line x1="1230.0" y1="116" x2="1230.0" y2="1256" stroke="#c6d3e2" stroke-width="1.2" stroke-dasharray="4 4"/>
+<line x1="150.0" y1="156" x2="510.0" y2="156" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="330.0" y="149" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">mở trình xem tiêu bản của một ảnh</text>
+<line x1="510.0" y1="196" x2="870.0" y2="196" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="690.0" y="189" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">GET .../inference · .../review · .../annotations · /api/images/{id}</text>
+<line x1="870.0" y1="236" x2="510.0" y2="236" stroke="#42536b" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#a)"/>
+<text x="690.0" y="229" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">kết quả AI, bản đánh giá (404 nếu chưa có), vùng khoanh, metadata ảnh</text>
+<polyline points="510.0,276 556.0,276 556.0,302 514.0,302" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="566.0" y="293.0" text-anchor="start" font-size="10.5" font-weight="400" fill="#3d4f66">404 của review được coi là “chưa có”, không phải lỗi</text>
+<polyline points="510.0,330 556.0,330 556.0,356 514.0,356" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="566.0" y="347.0" text-anchor="start" font-size="10.5" font-weight="400" fill="#3d4f66">chỉ điền sẵn từ AI khi kết quả dùng được</text>
+<text x="566.0" y="362.0" text-anchor="start" font-size="9.5" font-weight="400" fill="#6b7c92" font-style="italic">AI không gán được mẫu → để trống, hiện cảnh báo mâu thuẫn</text>
+<line x1="150.0" y1="398" x2="510.0" y2="398" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="330.0" y="391" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">chọn mẫu trội / phụ, nhập PNI, LVI, ghi chú</text>
+<line x1="150.0" y1="438" x2="510.0" y2="438" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="330.0" y="431" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">bấm Lưu</text>
+<line x1="510.0" y1="478" x2="870.0" y2="478" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="690.0" y="471" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">PATCH /api/images/{id}/review</text>
+<text x="690.0" y="491" text-anchor="middle" font-size="9.5" font-weight="400" fill="#6b7c92" font-style="italic">cancer_area_percentage lấy từ kết quả phân đoạn, không phải người nhập</text>
+<line x1="870.0" y1="530" x2="1230.0" y2="530" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="1050.0" y="523" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">lấy bản đánh giá mới nhất của ảnh (tạo mới nếu chưa có)</text>
+<rect x="810.0" y="556" width="550.0" height="61" rx="4" fill="#fff5f5" stroke="#d98a8a"/>
+<text x="822.0" y="571" text-anchor="start" font-size="10" font-weight="700" fill="#a34a4a">alt  [bản đánh giá đã được xác nhận]</text>
+<text x="822.0" y="586" text-anchor="start" font-size="10" font-weight="400" fill="#a34a4a">423 Locked — giao diện nạp lại bản đánh giá thay vì hiện lỗi thô</text>
+<text x="822.0" y="601" text-anchor="start" font-size="10" font-weight="400" fill="#a34a4a">(thường gặp khi đã xác nhận ở một thẻ trình duyệt khác)</text>
+<polyline points="870.0,645 916.0,645 916.0,671 874.0,671" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="926.0" y="662.0" text-anchor="start" font-size="10.5" font-weight="400" fill="#3d4f66">tính total_score và grade_group từ cặp mẫu</text>
+<line x1="870.0" y1="699" x2="1230.0" y2="699" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="1050.0" y="692" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">UPDATE diagnostic_reviews  ·  INSERT audit_logs</text>
+<line x1="870.0" y1="739" x2="510.0" y2="739" stroke="#42536b" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#a)"/>
+<text x="690.0" y="732" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">200  { bản đánh giá đã lưu }</text>
+<line x1="150.0" y1="793" x2="510.0" y2="793" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="330.0" y="786" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">bấm Xác nhận &amp; khóa</text>
+<line x1="510.0" y1="833" x2="870.0" y2="833" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="690.0" y="826" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">POST /api/images/{id}/review/confirm</text>
+<rect x="810.0" y="859" width="550.0" height="31" rx="4" fill="#fff5f5" stroke="#d98a8a"/>
+<text x="822.0" y="874" text-anchor="start" font-size="10" font-weight="700" fill="#a34a4a">alt  [chưa có bản nháp] → 404      alt  [đã xác nhận trước đó] → 409</text>
+<line x1="870.0" y1="918" x2="1230.0" y2="918" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="1050.0" y="911" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">status = 'confirmed', confirmed_at, reviewed_by  ·  INSERT audit_logs</text>
+<line x1="870.0" y1="958" x2="510.0" y2="958" stroke="#42536b" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#a)"/>
+<text x="690.0" y="951" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">200 — biểu mẫu chuyển sang chỉ đọc</text>
+<line x1="510.0" y1="1012" x2="870.0" y2="1012" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="690.0" y="1005" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">GET /api/cases/{case_id}/gleason</text>
+<line x1="870.0" y1="1052" x2="1230.0" y2="1052" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="1050.0" y="1045" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">đọc mọi đánh giá đã xác nhận của ca (qua slide → ảnh)</text>
+<polyline points="870.0,1092 916.0,1092 916.0,1118 874.0,1118" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="926.0" y="1109.0" text-anchor="start" font-size="10.5" font-weight="400" fill="#3d4f66">_aggregate_gleason — trọng số theo diện tích ung thư</text>
+<text x="926.0" y="1124.0" text-anchor="start" font-size="9.5" font-weight="400" fill="#6b7c92" font-style="italic">hòa thì nghiêng về grade cao hơn; tính khi đọc, không lưu sẵn</text>
+<line x1="870.0" y1="1160" x2="510.0" y2="1160" stroke="#42536b" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#a)"/>
+<text x="690.0" y="1153" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">mẫu trội, mẫu phụ, tổng điểm, số ảnh đã xác nhận</text>
+<line x1="510.0" y1="1200" x2="150.0" y2="1200" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="330.0" y="1193" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">hiện điểm Gleason cấp ca và phiếu kết quả</text>
+</svg>

@@ -48,10 +48,10 @@ export function DoctorDashboard({ cases, token, onOpenCase, onGo, onGoResult }: 
             <Button variant="ghost" size="sm" iconRight={<Icon name="arrow-right" />} onClick={() => onGo('cases')}>Xem tất cả</Button>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr 130px 90px 130px 110px', gap: 16, padding: '10px 16px', background: 'var(--gray-50)', borderBottom: '1px solid var(--border-subtle)', fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-            <span>Mã ca</span><span>Bệnh nhân</span><span>Gleason</span><span>Tin cậy</span><span>Trạng thái</span><span>Ngày</span>
+            <span>Mã ca</span><span>Bệnh nhân</span><span>Gleason</span><span>Tin cậy AI</span><span>Trạng thái</span><span>Ngày</span>
           </div>
           {recent.map((c) => (
-            <CaseRow key={c.id} caseId={c.id} patient={c.hoTen} gleason={c.gleason || undefined} confidence={c.confidence ?? undefined} status={c.status} date={c.ngayTao.slice(0, 5)} onClick={() => onOpenCase(c)} />
+            <CaseRow key={c.id} caseId={c.id} patient={c.hoTen} gleason={c.gleason || undefined} gleasonScore={c.gleasonScore} confidence={c.confidence ?? undefined} status={c.status} date={c.ngayTao.slice(0, 5)} onClick={() => onOpenCase(c)} />
           ))}
         </Card>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>

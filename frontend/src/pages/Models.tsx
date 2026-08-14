@@ -75,7 +75,29 @@ function CalibrationSection({ token }: { token: string }) {
 }
 
 export function Models({ token }: { token: string }) {
-  const [models] = useApiData(() => api.getModels(token), [token]);
+  const [models, reloadModels] = useApiData(() => api.getModels(token), [token]);
+  // Keyed by task_type/arch_key — each card reloads independently.
+  const [reloading, setReloading] = useState<string | null>(null);
+  const [reloaded, setReloaded] = useState<string | null>(null);
+  const [reloadError, setReloadError] = useState<string | null>(null);
+
+  async function handleReload(taskType: string, archKey: string) {
+    const key = `${taskType}/${archKey}`;
+    setReloading(key);
+    setReloadError(null);
+    setReloaded(null);
+    try {
+      await api.reloadModel(token, taskType, archKey);
+      setReloaded(key);
+      // Availability is read from disk on every request, so refetching also
+      // picks up a checkpoint that was added or removed since this page loaded.
+      reloadModels();
+    } catch (err) {
+      setReloadError(err instanceof api.ApiError ? err.message : 'Tải lại checkpoint thất bại.');
+    } finally {
+      setReloading(null);
+    }
+  }
 
   if (models.status !== 'data') {
     return <StateMessage kind={models.status === 'error' ? 'error' : 'loading'}>{models.status === 'error' ? models.message : undefined}</StateMessage>;
@@ -83,6 +105,7 @@ export function Models({ token }: { token: string }) {
 
   return (
     <div style={{ padding: 24, maxWidth: 1000, margin: '0 auto' }}>
+      {reloadError && <div style={{ fontSize: 13, color: 'var(--danger)', marginBottom: 12 }}>{reloadError}</div>}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
         {models.data.map((m) => (
           <Card key={m.name} padding="none">
@@ -117,7 +140,18 @@ export function Models({ token }: { token: string }) {
                   <span style={{ color: 'var(--text-strong)', fontFamily: 'var(--font-mono)', fontSize: 12 }}>{v}</span>
                 </div>
               ))}
-              <Button variant="secondary" size="sm" iconLeft={<Icon name="refresh-cw" />} style={{ marginTop: 6 }}>Tải lại checkpoint</Button>
+              <Button
+                variant="secondary" size="sm" iconLeft={<Icon name="refresh-cw" />} style={{ marginTop: 6 }}
+                disabled={reloading === `${m.task_type}/${m.arch_key}`}
+                onClick={() => handleReload(m.task_type, m.arch_key)}
+              >
+                {reloading === `${m.task_type}/${m.arch_key}` ? 'Đang tải lại…' : 'Tải lại checkpoint'}
+              </Button>
+              {reloaded === `${m.task_type}/${m.arch_key}` && (
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  Đã bỏ trọng số khỏi bộ nhớ — lần chạy tiếp theo sẽ đọc lại file checkpoint.
+                </div>
+              )}
             </div>
           </Card>
         ))}

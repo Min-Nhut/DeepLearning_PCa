@@ -8,7 +8,7 @@ from fastapi.responses import Response
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from ..ai_models_config import list_model_infos
+from ..ai_models_config import list_model_infos, recommended_arch
 from ..audit import write_audit_log
 from ..database import SessionLocal, get_db
 from ..deps import get_current_user
@@ -212,15 +212,17 @@ def trigger_inference(
     if image is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy ảnh")
 
-    # Falls back to the first *available* checkpoint if none requested, or to
-    # the first known architecture name if none are available at all — the
-    # background task then discovers that missing checkpoint and fails the
-    # run with a clear message, rather than rejecting the request outright.
-    seg_arch = payload.segmentation_model or next(
-        iter(registry.list_available("segmentation") or architectures.SEGMENTATION_ARCHITECTURES)
+    # Falls back to the best-scoring *available* checkpoint if none requested —
+    # previously this took the first entry in a hard-coded list, which silently
+    # handed anyone who didn't touch the picker the second-best classification
+    # model. Falls back further to the first known architecture name if nothing
+    # is on disk, so the background task can fail the run with a clear message
+    # rather than the request being rejected outright.
+    seg_arch = payload.segmentation_model or recommended_arch("segmentation") or next(
+        iter(architectures.SEGMENTATION_ARCHITECTURES)
     )
-    clf_arch = payload.classification_model or next(
-        iter(registry.list_available("classification") or architectures.CLASSIFICATION_ARCHITECTURES)
+    clf_arch = payload.classification_model or recommended_arch("classification") or next(
+        iter(architectures.CLASSIFICATION_ARCHITECTURES)
     )
 
     run = InferenceRun(

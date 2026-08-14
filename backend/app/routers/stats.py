@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import func
@@ -19,11 +19,28 @@ _PATTERN_LABELS: list[tuple[int | None, str]] = [
 ]
 
 
+def _local_day_start_utc() -> str:
+    """Midnight of the viewer's own day, expressed in the timezone the database
+    actually stores.
+
+    `created_at` is written by SQLite's `datetime('now')`, which is **UTC**,
+    while this used to compare against Python's `date.today()`, which is
+    **local**. In Vietnam (UTC+7) the two disagree from 00:00 to 07:00 every
+    day, so "Ca mới hôm nay" silently read 0 for the first seven hours of every
+    morning — invisible to anyone testing during the day. Caught only because a
+    test happened to run at 00:38.
+
+    Both bounds now come from one clock. The window is the doctor's local day,
+    not the UTC day, because that is the day they mean.
+    """
+    local_midnight = datetime.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
+    return local_midnight.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+
 @router.get("/doctor", response_model=DoctorStats)
 def get_doctor_stats(db: Session = Depends(get_db)) -> DoctorStats:
-    today = date.today().isoformat()
     new_cases_today = (
-        db.query(func.count(Case.id)).filter(func.date(Case.created_at) == today).scalar() or 0
+        db.query(func.count(Case.id)).filter(Case.created_at >= _local_day_start_utc()).scalar() or 0
     )
     pending_reviews = (
         db.query(func.count(DiagnosticReview.id)).filter(DiagnosticReview.status == "draft").scalar() or 0

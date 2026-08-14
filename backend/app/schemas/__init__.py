@@ -37,7 +37,13 @@ from .inference import (
     SegmentationResultOut,
     Stage3ResultOut,
 )
-from .reviews import DiagnosticReviewOut, DiagnosticReviewUpdate, FlaggedReviewOut
+from .reviews import (
+    CaseReportImage,
+    CaseReportOut,
+    DiagnosticReviewOut,
+    DiagnosticReviewUpdate,
+    FlaggedReviewOut,
+)
 from .stats import DoctorStats, PatternCount
 
 __all__ = [
@@ -78,6 +84,8 @@ __all__ = [
     "Stage3ResultOut",
     "DiagnosticReviewOut",
     "DiagnosticReviewUpdate",
+    "CaseReportImage",
+    "CaseReportOut",
     "FlaggedReviewOut",
     "DoctorStats",
     "PatternCount",

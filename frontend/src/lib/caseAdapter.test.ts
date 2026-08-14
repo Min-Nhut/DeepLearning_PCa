@@ -22,6 +22,12 @@ function apiCase(overrides: Partial<ApiCase> = {}): ApiCase {
     created_by: 1,
     created_at: '2026-08-07 09:15:00',
     updated_at: '2026-08-07 09:15:00',
+    status: 'new',
+    primary_pattern: null,
+    secondary_pattern: null,
+    total_score: null,
+    images_confirmed: 0,
+    ai_confidence: null,
     slides: [],
     ...overrides,
   } as ApiCase;
@@ -56,7 +62,37 @@ describe('caseFromApi', () => {
     expect(c.gleason).toBeNull();
     expect(c.primary).toBeNull();
     expect(c.secondary).toBeNull();
+    expect(c.gleasonScore).toBeNull();
     expect(c.confidence).toBeNull();
+  });
+
+  it('carries a real case-level score through instead of showing a dash', () => {
+    const c = caseFromApi(apiCase({
+      primary_pattern: 4, secondary_pattern: 3, total_score: 7, images_confirmed: 2,
+    }));
+    expect(c.gleason).toBe('4');
+    expect(c.gleasonScore).toBe('4+3=7');
+    expect(c.primary).toBe(4);
+    expect(c.secondary).toBe(3);
+  });
+
+  it('shows a confirmed benign case as benign, not as no result', () => {
+    // Both leave the score null; only one of them means "nothing signed off".
+    const benign = caseFromApi(apiCase({ images_confirmed: 1 }));
+    expect(benign.gleason).toBe('benign');
+    expect(benign.gleasonScore).toBeNull();
+
+    expect(caseFromApi(apiCase({ images_confirmed: 0 })).gleason).toBeNull();
+  });
+
+  it('rounds the AI confidence for display without losing a real zero', () => {
+    expect(caseFromApi(apiCase({ ai_confidence: 87.0976 })).confidence).toBe(87);
+    expect(caseFromApi(apiCase({ ai_confidence: 0 })).confidence).toBe(0);
+    expect(caseFromApi(apiCase({ ai_confidence: null })).confidence).toBeNull();
+  });
+
+  it('passes the workflow status through rather than defaulting it', () => {
+    expect(caseFromApi(apiCase({ status: 'reviewed' })).status).toBe('reviewed');
   });
 
   it('says a name is missing rather than showing an empty cell', () => {

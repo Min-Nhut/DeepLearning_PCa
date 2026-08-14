@@ -9,19 +9,31 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile, 
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response
 from PIL import Image as PILImage
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from ..audit import write_audit_log
 from ..database import get_db
 from ..deps import get_current_user
-from ..models import Case, DiagnosticReview, Image, PreprocessingResult, Slide, User
+from ..models import (
+    Case,
+    ClassificationResult,
+    DiagnosticReview,
+    Image,
+    InferenceRun,
+    PreprocessingResult,
+    Slide,
+    Stage3Result,
+    User,
+)
 from ..preprocessing import run_preprocessing
 from ..schemas import (
     CaseCreate,
     CaseGleasonOut,
     CaseOut,
+    CaseReportImage,
+    CaseReportOut,
     CaseUpdate,
     ImageOut,
     PreprocessingOut,
@@ -70,6 +82,197 @@ def _case_query(db: Session):
     return db.query(Case).options(selectinload(Case.slides).selectinload(Slide.images))
 
 
+def _aggregate_gleason(
+    reviews: list[tuple[int | None, int | None, float | None]],
+) -> tuple[int | None, int | None]:
+    """Case-level primary/secondary from one case's *confirmed* image reviews,
+    each given as `(primary_pattern, secondary_pattern, cancer_area_percentage)`.
+
+    Primary = the pattern with the greatest cumulative extent across the case;
+    each confirmed image's own primary already represents that image's dominant
+    pattern (see pipeline.py's aggregation), so its cancer area is that
+    pattern's weight for this image. Secondary = the highest-grade pattern
+    present anywhere else in the case, falling back to primary when it is the
+    only one (single-pattern convention). All benign → `(None, None)`.
+
+    Pure, so the case list and GET /{id}/gleason cannot drift apart: one
+    computes it in bulk for many cases, the other for one, but the rule is here.
+    """
+    pattern_weight: dict[int, float] = {3: 0.0, 4: 0.0, 5: 0.0}
+    primary_seen: set[int] = set()
+    patterns_present: set[int] = set()
+    for primary, secondary, area in reviews:
+        if primary in (3, 4, 5):
+            pattern_weight[primary] += area or 0.0
+            primary_seen.add(primary)
+            patterns_present.add(primary)
+        if secondary in (3, 4, 5):
+            patterns_present.add(secondary)
+
+    if not patterns_present:
+        return None, None
+
+    if primary_seen:
+        # Ties break towards the higher grade rather than dict order — two
+        # equal-area foci must not under-grade the case.
+        primary_pattern = max(primary_seen, key=lambda p: (pattern_weight[p], p))
+    else:
+        # No image reported a primary, yet a pattern was recorded as someone's
+        # secondary. Degenerate, but reporting the pattern that is actually
+        # there beats defaulting to the lowest grade.
+        primary_pattern = max(patterns_present)
+
+    others = [p for p in patterns_present if p != primary_pattern]
+    return primary_pattern, (max(others) if others else primary_pattern)
+
+
+def _attach_derived(db: Session, cases: list[Case]) -> None:
+    """Fill in each case's workflow status and its AI/diagnosis summary, in place.
+
+    None of this is a stored column, and none of it can be derived on the client
+    — `CaseOut` carries slides and images but no runs, reviews or results. Every
+    one of these fields was hard-coded in the frontend when the screens moved
+    off mock data, so the badge read "Mới" forever and the Gleason and
+    confidence columns showed "—" even for a case that had been fully signed
+    off.
+
+    Four grouped queries regardless of how many cases are listed, not a set per
+    case — the same N+1 shape already fixed once in admin.list_users.
+    """
+    if not cases:
+        return
+    case_ids = [c.id for c in cases]
+
+    image_counts = dict(
+        db.query(Slide.case_id, func.count(Image.id))
+        .join(Image, Image.slide_id == Slide.id)
+        .filter(Slide.case_id.in_(case_ids))
+        .group_by(Slide.case_id)
+        .all()
+    )
+    run_rows = (
+        db.query(Slide.case_id, InferenceRun.status, func.count(InferenceRun.id))
+        .join(Image, Image.slide_id == Slide.id)
+        .join(InferenceRun, InferenceRun.image_id == Image.id)
+        .filter(Slide.case_id.in_(case_ids))
+        .group_by(Slide.case_id, InferenceRun.status)
+        .all()
+    )
+    # One pass over the reviews serves both the status badge (which needs counts
+    # per status) and the case-level score (which needs the confirmed rows
+    # themselves), rather than querying the same table twice.
+    review_rows = (
+        db.query(
+            Slide.case_id,
+            DiagnosticReview.status,
+            Image.id,
+            DiagnosticReview.primary_pattern,
+            DiagnosticReview.secondary_pattern,
+            DiagnosticReview.cancer_area_percentage,
+        )
+        .join(Image, Image.slide_id == Slide.id)
+        .join(DiagnosticReview, DiagnosticReview.image_id == Image.id)
+        .filter(Slide.case_id.in_(case_ids))
+        .all()
+    )
+    # Confidence is the AI's own, averaged over the *latest completed* run per
+    # image — an image re-run three times must count once, and a superseded
+    # run's number is not what the doctor is looking at.
+    latest_runs = (
+        select(func.max(InferenceRun.id))
+        .where(InferenceRun.status == "completed")
+        .group_by(InferenceRun.image_id)
+        .scalar_subquery()
+    )
+    confidence_by_case = dict(
+        db.query(Slide.case_id, func.avg(ClassificationResult.primary_confidence))
+        .join(Image, Image.slide_id == Slide.id)
+        .join(InferenceRun, InferenceRun.image_id == Image.id)
+        .join(ClassificationResult, ClassificationResult.run_id == InferenceRun.id)
+        .filter(
+            Slide.case_id.in_(case_ids),
+            InferenceRun.id.in_(latest_runs),
+            ClassificationResult.primary_confidence.isnot(None),
+        )
+        .group_by(Slide.case_id)
+        .all()
+    )
+
+    # Stage 3 ISUP grade — averaged across the latest completed run per image,
+    # same "latest run" discipline as confidence_by_case above.
+    latest_runs_for_stage3 = (
+        select(func.max(InferenceRun.id))
+        .where(InferenceRun.status == "completed")
+        .group_by(InferenceRun.image_id)
+        .scalar_subquery()
+    )
+    isup_by_case = dict(
+        db.query(Slide.case_id, func.avg(Stage3Result.isup_grade), func.avg(Stage3Result.confidence))
+        .join(Image, Image.slide_id == Slide.id)
+        .join(InferenceRun, InferenceRun.image_id == Image.id)
+        .join(Stage3Result, Stage3Result.run_id == InferenceRun.id)
+        .filter(
+            Slide.case_id.in_(case_ids),
+            InferenceRun.id.in_(latest_runs_for_stage3),
+            Stage3Result.isup_grade.isnot(None),
+        )
+        .group_by(Slide.case_id)
+        .all()
+    )
+
+    runs: dict[int, dict[str, int]] = {}
+    for case_id, run_status, count in run_rows:
+        runs.setdefault(case_id, {})[run_status] = count
+
+    reviewed_images: dict[int, dict[str, set[int]]] = {}
+    confirmed: dict[int, list[tuple[int | None, int | None, float | None]]] = {}
+    for case_id, review_status, image_id, primary, secondary, area in review_rows:
+        reviewed_images.setdefault(case_id, {}).setdefault(review_status, set()).add(image_id)
+        if review_status == "confirmed":
+            confirmed.setdefault(case_id, []).append((primary, secondary, area))
+
+    for case in cases:
+        images = image_counts.get(case.id, 0)
+        case_runs = runs.get(case.id, {})
+        case_reviews = reviewed_images.get(case.id, {})
+        confirmed_images = len(case_reviews.get("confirmed", ()))
+
+        if case_runs.get("pending", 0) or case_runs.get("running", 0):
+            # Something is actively in flight, including waiting for the single
+            # inference slot — that still reads as "processing" to a doctor.
+            case.status = "processing"
+        elif images and confirmed_images >= images:
+            case.status = "reviewed"
+        elif case_runs.get("completed", 0) or case_reviews:
+            # There is something for the doctor to look at: a finished run, or a
+            # review already started. A run that only ever *failed* deliberately
+            # does not land here — nothing was produced to review, so the case
+            # stays "new" rather than claiming a result exists.
+            case.status = "review"
+        else:
+            case.status = "new"
+
+        primary, secondary = _aggregate_gleason(confirmed.get(case.id, []))
+        case.primary_pattern = primary
+        case.secondary_pattern = secondary
+        case.total_score = (primary + secondary) if primary and secondary else None
+        case.images_confirmed = confirmed_images
+        avg_confidence = confidence_by_case.get(case.id)
+        # Stored 0-1; the UI shows a percentage, and converting here keeps every
+        # caller from having to remember which one it is.
+        case.ai_confidence = (avg_confidence * 100) if avg_confidence is not None else None
+
+        # Stage 3 ISUP: round the per-case average to the nearest integer grade.
+        isup_row = isup_by_case.get(case.id)
+        if isup_row is not None:
+            avg_isup, avg_isup_conf = isup_row
+            case.isup_grade = round(float(avg_isup)) if avg_isup is not None else None
+            case.isup_confidence = (float(avg_isup_conf) * 100) if avg_isup_conf is not None else None
+        else:
+            case.isup_grade = None
+            case.isup_confidence = None
+
+
 @router.get("", response_model=list[CaseOut])
 def list_cases(
     db: Session = Depends(get_db),
@@ -81,7 +284,9 @@ def list_cases(
     if q:
         like = f"%{q}%"
         query = query.filter((Case.case_code.like(like)) | (Case.patient_name.like(like)))
-    return query.order_by(Case.created_at.desc()).offset(offset).limit(limit).all()
+    cases = query.order_by(Case.created_at.desc()).offset(offset).limit(limit).all()
+    _attach_derived(db, cases)
+    return cases
 
 
 @router.post("", response_model=CaseOut, status_code=status.HTTP_201_CREATED)
@@ -111,6 +316,7 @@ def get_case(case_id: int, db: Session = Depends(get_db)) -> Case:
     case = _case_query(db).filter(Case.id == case_id).first()
     if case is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy ca bệnh")
+    _attach_derived(db, [case])
     return case
 
 
@@ -156,20 +362,11 @@ def get_case_gleason(case_id: int, db: Session = Depends(get_db)) -> CaseGleason
             images_confirmed=0, images_total=images_total, per_image=[],
         )
 
-    # Primary = the pattern with the greatest cumulative extent across the whole
-    # case — each confirmed image's own primary_pattern already represents that
-    # image's dominant pattern (see pipeline.py's own aggregation), so its
-    # cancer_area_percentage is used as that pattern's weight for this image.
-    pattern_weight: dict[int, float] = {3: 0.0, 4: 0.0, 5: 0.0}
-    patterns_present: set[int] = set()
-    for p in per_image:
-        if p.primary_pattern in (3, 4, 5):
-            pattern_weight[p.primary_pattern] += p.cancer_area_percentage or 0.0
-            patterns_present.add(p.primary_pattern)
-        if p.secondary_pattern in (3, 4, 5):
-            patterns_present.add(p.secondary_pattern)
+    primary_pattern, secondary_pattern = _aggregate_gleason(
+        [(p.primary_pattern, p.secondary_pattern, p.cancer_area_percentage) for p in per_image]
+    )
 
-    if not patterns_present:
+    if primary_pattern is None or secondary_pattern is None:
         # Every confirmed image in the case was benign — a real, honest result,
         # not "not enough data".
         return CaseGleasonOut(
@@ -177,13 +374,6 @@ def get_case_gleason(case_id: int, db: Session = Depends(get_db)) -> CaseGleason
             total_score=None, grade_group=None,
             images_confirmed=len(per_image), images_total=images_total, per_image=per_image,
         )
-
-    primary_pattern = max(pattern_weight, key=lambda p: pattern_weight[p])
-    # Secondary = the highest-grade pattern present anywhere in the case other
-    # than the chosen primary; falls back to the primary itself if it's the
-    # only pattern present (single-pattern convention, matches pipeline.py).
-    other_patterns = [p for p in patterns_present if p != primary_pattern]
-    secondary_pattern = max(other_patterns) if other_patterns else primary_pattern
 
     return CaseGleasonOut(
         case_id=case_id,
@@ -217,6 +407,134 @@ def update_case(
         db.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, "Mã số + Mã năm đã tồn tại")
     return get_case(case_id, db)
+
+
+@router.delete("/{case_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_case(
+    case_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> None:
+    """Removes the case and everything under it (slides, images, AI runs,
+    annotations, reviews).
+
+    File cleanup: every image's UUID-prefixed file family is deleted via the
+    shared _delete_image_files() helper.  Empty slide/case directories are
+    pruned afterwards.  DB rows cascade automatically (ON DELETE CASCADE +
+    PRAGMA foreign_keys=ON); files on disk do not, so this must be explicit.
+
+    No per-doctor ownership check — matches the flat role model used
+    everywhere else (delete_slide, delete_image)."""
+    case = db.get(Case, case_id)
+    if case is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy ca bệnh")
+
+    # Gather all images across all slides of this case, then delete their
+    # on-disk files before the DB rows cascade away (we need file_path).
+    slides = db.query(Slide).filter(Slide.case_id == case_id).all()
+    slide_dirs: set[Path] = set()
+    total_images = 0
+    for slide in slides:
+        images = db.query(Image).filter(Image.slide_id == slide.id).all()
+        for image in images:
+            _delete_image_files(image)
+            slide_dirs.add((UPLOAD_ROOT.parent / image.file_path).parent)
+            total_images += 1
+        # Remove the slide's upload directory when it is now empty.
+        for d in slide_dirs:
+            if d.is_dir() and not any(d.iterdir()):
+                d.rmdir()
+        slide_dirs.clear()
+
+    # Remove the case-level upload directory if it exists and is now empty.
+    case_dir = UPLOAD_ROOT / f"case_{case_id}"
+    if case_dir.is_dir() and not any(case_dir.iterdir()):
+        case_dir.rmdir()
+
+    write_audit_log(
+        db, user, "delete_case", "case", case.id,
+        details=f"slides={len(slides)}, images={total_images}",
+    )
+    db.delete(case)
+    db.commit()
+
+
+@router.get("/{case_id}/report", response_model=CaseReportOut)
+def get_case_report(case_id: int, db: Session = Depends(get_db)) -> CaseReportOut:
+    """Everything a signed, case-level report needs, in one call.
+
+    The per-image report screen was never the document a pathologist actually
+    signs — under the CAP protocol one case (up to 12 slides) produces one
+    report. This returns the case header, the aggregated Gleason score, every
+    **confirmed** image's findings, and who signed them. Drafts are excluded on
+    purpose: an unsigned opinion has no place on a signed document.
+    """
+    case = db.get(Case, case_id)
+    if case is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy ca bệnh")
+
+    rows = (
+        db.query(DiagnosticReview, Image, Slide)
+        .join(Image, DiagnosticReview.image_id == Image.id)
+        .join(Slide, Image.slide_id == Slide.id)
+        .filter(Slide.case_id == case_id, DiagnosticReview.status == "confirmed")
+        .order_by(Slide.slide_number, Image.image_number)
+        .all()
+    )
+
+    images = [
+        CaseReportImage(
+            image_id=image.id,
+            slide_label=slide.legacy_slide_label or f"Slide {slide.slide_number}",
+            image_number=image.image_number,
+            magnification=image.magnification,
+            primary_pattern=review.primary_pattern,
+            secondary_pattern=review.secondary_pattern,
+            total_score=review.total_score,
+            grade_group=review.grade_group,
+            cancer_area_percentage=review.cancer_area_percentage,
+            tumor_length_mm=review.tumor_length_mm,
+            biopsy_location=review.biopsy_location,
+            pni_present=bool(review.pni_present),
+            pni_notes=review.pni_notes,
+            lvi_present=bool(review.lvi_present),
+            lvi_notes=review.lvi_notes,
+            free_notes=review.free_notes,
+            needs_second_opinion=bool(review.needs_second_opinion),
+            second_opinion_notes=review.second_opinion_notes,
+            confirmed_at=review.confirmed_at,
+            reviewed_by_name=review.reviewed_by_name,
+        )
+        for review, image, slide in rows
+    ]
+
+    # Order preserved (first signature first) rather than sorted — the sequence
+    # is itself information on a multi-signer case.
+    signed_by: list[str] = []
+    for item in images:
+        if item.reviewed_by_name and item.reviewed_by_name not in signed_by:
+            signed_by.append(item.reviewed_by_name)
+
+    images_total = (
+        db.query(func.count(Image.id))
+        .join(Slide, Image.slide_id == Slide.id)
+        .filter(Slide.case_id == case_id)
+        .scalar() or 0
+    )
+
+    return CaseReportOut(
+        case_id=case.id,
+        case_code=case.case_code,
+        case_year=case.case_year,
+        patient_name=case.patient_name,
+        patient_age=case.patient_age,
+        conclusion=case.conclusion,
+        created_at=case.created_at,
+        gleason=get_case_gleason(case_id, db),
+        images=images,
+        images_total=images_total,
+        signed_by=signed_by,
+    )
 
 
 @router.post("/{case_id}/slides", response_model=SlideOut, status_code=status.HTTP_201_CREATED)

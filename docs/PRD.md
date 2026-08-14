@@ -10,7 +10,7 @@ AI-assisted Web System for Prostate Cancer Gleason Grading
 
 Bản PRD này được tổ chức thành **hai lớp phạm vi** để tránh nhầm lẫn giữa "cái sẽ build và bảo vệ trong đồ án" và "tầm nhìn dài hạn nếu phát triển thành sản phẩm thật":
 
-- **🟢 MVP — Thesis Scope**: Toàn bộ mục 1–11 mô tả hệ thống mà Sea thực sự thiết kế, xây dựng, huấn luyện model và demo được trong khuôn khổ đồ án (huấn luyện trên Google Colab Pro, kiến trúc 3 tầng, dữ liệu SICAPv2).
+- **🟢 MVP — Thesis Scope**: Toàn bộ mục 1–11 mô tả hệ thống mà Sea thực sự thiết kế, xây dựng, huấn luyện model và demo được trong khuôn khổ đồ án (huấn luyện trên Google Colab Pro, kiến trúc 3 tầng, dữ liệu PANDA — Radboud).
 - **🔵 Production Vision — Future Work**: Mục 12 gom toàn bộ các yêu cầu cấp bệnh viện thật (LIS/HIS, pilot lâm sàng, chữ ký số pháp lý, hạ tầng production) — được giữ lại như *định hướng phát triển*, không phải yêu cầu phải hoàn thành.
 
 Việc tách bạch này giúp hội đồng đánh giá đúng những gì Sea thực sự làm, đồng thời cho thấy Sea hiểu rõ con đường từ "prototype nghiên cứu" đến "sản phẩm lâm sàng".
@@ -21,7 +21,7 @@ Việc tách bạch này giúp hội đồng đánh giá đúng những gì Sea 
 
 - **Tên sản phẩm**: ProstaAI
 - **Mô tả**: ProstaAI là một ứng dụng web hỗ trợ (decision-support prototype) cho việc phân loại thang điểm Gleason trên ảnh sinh thiết tuyến tiền liệt nhuộm H&E, sử dụng hai model AI độc lập (Gland Segmentation và Gleason Classification) được tích hợp vào một hệ thống full-stack. Đây là **sản phẩm nghiên cứu/prototype** minh chứng tính khả thi của pipeline AI hỗ trợ chẩn đoán, **không phải thiết bị y tế đã được kiểm định** và không dùng để chẩn đoán thay bác sĩ trên bệnh nhân thật.
-- **Phạm vi triển khai (MVP)**: Web app chạy độc lập (local hoặc cloud demo — ví dụ Render/Railway/VPS sinh viên), người dùng là bác sĩ/giảng viên/hội đồng thử nghiệm với ảnh mẫu từ tập dữ liệu công khai (SICAPv2) hoặc ảnh do người dùng tự tải lên.
+- **Phạm vi triển khai (MVP)**: Web app chạy độc lập (local hoặc cloud demo — ví dụ Render/Railway/VPS sinh viên), người dùng là bác sĩ/giảng viên/hội đồng thử nghiệm với ảnh mẫu từ tập dữ liệu công khai (PANDA) hoặc ảnh do người dùng tự tải lên.
 
 ## 2. Product Vision
 
@@ -36,16 +36,16 @@ Xây dựng và chứng minh tính khả thi kỹ thuật của một pipeline A
 
 - **Thiếu công cụ hỗ trợ tự động dễ tiếp cận**: Phần lớn công cụ AI hỗ trợ Gleason grading hiện có yêu cầu ảnh WSI (Whole Slide Imaging) từ máy scan chuyên dụng, chi phí cao — không phù hợp với các cơ sở chỉ có ảnh chụp từ camera gắn kính hiển vi hoặc dữ liệu ảnh patch công khai.
 - **Đánh giá Gleason mang tính chủ quan**: Có sự khác biệt đáng kể giữa các bác sĩ khi đọc cùng một tiêu bản (inter-observer variability) — đây là vấn đề đã được nhiều nghiên cứu ghi nhận, và là động lực học thuật cho đồ án.
-- **Khoảng trống trong dataset công khai**: Tập SICAPv2 chỉ có nhãn Gleason ở mức patch và không có nhãn phân đoạn 5 lớp mô đầy đủ — đồ án cần thiết kế bài toán segmentation phù hợp với nhãn thực có (binary cancer-region proposal) thay vì semantic segmentation 5 lớp.
-- **Hệ thống hiện có đã lỗi thời và rời rạc**: Cơ sở y tế đang dùng một ứng dụng desktop nội bộ (WinForms/DevExpress) để quản lý ca bệnh và thu thập ảnh vi trường (Mã số, Họ tên, Tuổi, Kết luận, kèm ảnh chụp qua camera kính hiển vi theo cấu trúc Ca bệnh → Slide → Ảnh). Công cụ này **đã và đang thu thập dữ liệu thật** nhưng chạy độc lập trên máy cục bộ, không có AI hỗ trợ, không truy cập được từ xa, và dữ liệu không được chuẩn hóa để phục vụ nghiên cứu/huấn luyện model. Đây vừa là **động lực thực tế** cho đồ án (số hóa và nâng cấp công cụ đang dùng thật), vừa là **nguồn dữ liệu tiềm năng** để bổ sung/đối chiếu bên cạnh tập SICAPv2.
+- **Chọn dataset để có được nhãn phân đoạn theo lớp mô**: Đồ án dùng tập **PANDA** (Kaggle Prostate cANcer graDe Assessment) và **chỉ lấy các slide từ Radboud UMC**. PANDA đến từ hai cơ sở với quy ước gán nhãn khác nhau — mask của Karolinska thô hơn (chỉ nền/lành tính/ung thư), nên việc giới hạn ở Radboud chính là điều kiện để có mask **6 lớp** (nền, mô đệm, lành tính, Gleason 3/4/5). Nhờ đó bài toán segmentation là **semantic segmentation 6 lớp** chứ không phải chỉ đề xuất vùng nghi ngờ nhị phân.
+- **Hệ thống hiện có đã lỗi thời và rời rạc**: Cơ sở y tế đang dùng một ứng dụng desktop nội bộ (WinForms/DevExpress) để quản lý ca bệnh và thu thập ảnh vi trường (Mã số, Họ tên, Tuổi, Kết luận, kèm ảnh chụp qua camera kính hiển vi theo cấu trúc Ca bệnh → Slide → Ảnh). Công cụ này **đã và đang thu thập dữ liệu thật** nhưng chạy độc lập trên máy cục bộ, không có AI hỗ trợ, không truy cập được từ xa, và dữ liệu không được chuẩn hóa để phục vụ nghiên cứu/huấn luyện model. Đây vừa là **động lực thực tế** cho đồ án (số hóa và nâng cấp công cụ đang dùng thật), vừa là **nguồn dữ liệu tiềm năng** để bổ sung/đối chiếu bên cạnh tập PANDA.
 
 ## 4. Product Goals
 
 **🟢 Mục tiêu học thuật/kỹ thuật (đo được trong đồ án):**
-- Xây dựng thành công 2 model AI (segmentation nhị phân + classification Gleason Pattern 3/4/5) đạt hiệu năng chấp nhận được trên tập test SICAPv2 (xem mục 11).
+- Xây dựng thành công 2 model AI (semantic segmentation 6 lớp mô + classification 4 lớp: lành tính và Gleason Pattern 3/4/5) đạt hiệu năng chấp nhận được trên tập test PANDA (xem mục 11).
 - Xây dựng hệ thống web full-stack 3 tầng (Frontend – FastAPI Backend – Model Serving) hoạt động end-to-end: tải ảnh → tiền xử lý → suy diễn AI → hiển thị kết quả.
 - Thiết kế pipeline 7 bước hoàn chỉnh: Image Acquisition → Preprocessing → Tissue Detection → Gland Segmentation → Gleason Classification → Score Aggregation → Visualization.
-- Huấn luyện model có kiểm soát tái lập (checkpoint/resume, 4-fold cross-validation) trong giới hạn tài nguyên Google Colab Pro.
+- Huấn luyện model có kiểm soát tái lập (checkpoint/resume, chia train/val/test 80/10/10 **theo subject** — cùng một lần chia được dùng chung cho cả segmentation và classification để không rò rỉ dữ liệu giữa hai nhánh) trong giới hạn tài nguyên Google Colab Pro.
 - Xây dựng cơ chế **di trú dữ liệu (data migration)** từ hệ thống desktop hiện có (Ca bệnh → Slide → Ảnh) vào cơ sở dữ liệu của hệ thống web mới, kèm bước ẩn danh hóa dữ liệu bệnh nhân thật trước khi dùng cho demo/nghiên cứu.
 
 **🔵 Mục tiêu định hướng dài hạn (không bắt buộc trong đồ án — xem mục 12):**
@@ -101,8 +101,8 @@ Vì đồ án không có nhiều người dùng thật đồng thời, MVP chỉ
   1. Xác định engine/định dạng lưu trữ hiện tại của ứng dụng desktop (thường là SQL Server, SQL Server Compact, SQLite hoặc file access cục bộ — cần mở project desktop hoặc file cấu hình để xác nhận).
   2. Xác định vị trí lưu file ảnh (local folder, đường dẫn theo Case/Slide) để viết script copy/liên kết ảnh sang storage mới.
   3. Kiểm tra chất lượng trường **"Kết Luận"**: đây hiện là text tự do — cần đánh giá xem có thể/nên trích xuất Gleason Pattern có cấu trúc từ đó hay không, hay giữ nguyên dạng ghi chú tự do và bổ sung các trường Gleason có cấu trúc riêng.
-  4. Ẩn danh hóa: khi dùng dữ liệu này cho mục đích huấn luyện/nghiên cứu/demo trước hội đồng, cần loại bỏ hoặc mã hóa Họ tên bệnh nhân, chỉ giữ mã ca bệnh ẩn danh — vì đây là dữ liệu bệnh nhân thật, không phải dữ liệu công khai như SICAPv2 (xem mục 9.3).
-- **Giá trị học thuật**: Nếu số lượng ca đủ lớn và trường "Kết Luận" có thể chuẩn hóa thành nhãn Gleason, đây có thể trở thành **tập dữ liệu thật bổ sung** để đánh giá model (ngoài SICAPv2) — một điểm cộng lớn cho đồ án vì chứng minh được model hoạt động trên dữ liệu lâm sàng thật, không chỉ dataset benchmark công khai. Tuy nhiên **không nên cam kết chắc chắn điều này trong PRD** cho đến khi Sea đã kiểm tra thực tế số lượng ca, chất lượng nhãn, và xin được phép sử dụng dữ liệu (xem lưu ý đạo đức/pháp lý bên dưới).
+  4. Ẩn danh hóa: khi dùng dữ liệu này cho mục đích huấn luyện/nghiên cứu/demo trước hội đồng, cần loại bỏ hoặc mã hóa Họ tên bệnh nhân, chỉ giữ mã ca bệnh ẩn danh — vì đây là dữ liệu bệnh nhân thật, không phải dữ liệu công khai như PANDA (xem mục 9.3).
+- **Giá trị học thuật**: Nếu số lượng ca đủ lớn và trường "Kết Luận" có thể chuẩn hóa thành nhãn Gleason, đây có thể trở thành **tập dữ liệu thật bổ sung** để đánh giá model (ngoài PANDA) — một điểm cộng lớn cho đồ án vì chứng minh được model hoạt động trên dữ liệu lâm sàng thật, không chỉ dataset benchmark công khai. Tuy nhiên **không nên cam kết chắc chắn điều này trong PRD** cho đến khi Sea đã kiểm tra thực tế số lượng ca, chất lượng nhãn, và xin được phép sử dụng dữ liệu (xem lưu ý đạo đức/pháp lý bên dưới).
 
 *Tích hợp LIS/HIS chuẩn HL7 (đồng bộ tự động với hệ thống bệnh viện khác) vẫn chuyển sang mục 12 — khác với việc kế thừa dữ liệu từ chính ứng dụng desktop nội bộ này, vốn khả thi vì Sea có quyền truy cập trực tiếp.*
 
@@ -127,16 +127,16 @@ Vì đồ án không có nhiều người dùng thật đồng thời, MVP chỉ
   1. Image Acquisition
   2. Preprocessing
   3. Tissue Detection
-  4. Gland Segmentation (PyTorch, encoder ResNeXt50_32x4d qua `segmentation-models-pytorch`, output: binary cancer-region mask)
-  5. Gleason Classification (phân loại Pattern 3/4/5 trên các vùng đã khoanh)
+  4. Tissue Segmentation (PyTorch qua `segmentation-models-pytorch`, encoder EfficientNet_b0 / DenseNet121; output: **mask semantic 6 lớp** — nền, mô đệm, lành tính, Gleason 3/4/5)
+  5. Gleason Classification (4 lớp: lành tính và Pattern 3/4/5, chỉ chạy trên các patch mà segmentation đã đánh dấu là mô liên quan ung thư)
   6. Score Aggregation (tổng hợp Primary/Secondary Pattern → Total Gleason Score → Grade Group theo công thức ISUP — đây là **phép tính quy tắc**, không phải model AI riêng)
   7. Visualization (sinh overlay mask + heatmap)
 - **Output AI (đã kiểm chứng khả thi với nhãn dataset hiện có)**:
-  - Segmentation Mask nhị phân (vùng nghi ngờ ung thư vs. mô bình thường).
+  - Mask phân đoạn 6 lớp (nền / mô đệm / lành tính / Gleason 3 / 4 / 5), lưu dưới dạng PNG không mất dữ liệu.
   - Gleason Pattern Area (Pattern 3/4/5) kèm Confidence Score.
   - Grade Group (tính toán, không phải dự đoán).
 
-**⚠️ Điều chỉnh quan trọng so với v2**: PNI (Perineural Invasion) và LVI (Lymphovascular Invasion) **không phải output của AI** vì SICAPv2 không có nhãn này. Hai trường này chuyển thành **trường nhập tay** ở mục 8.6 bên dưới, mô phỏng luồng làm việc thật của bác sĩ mà không cường điệu khả năng model.
+**⚠️ Điều chỉnh quan trọng so với v2**: PNI (Perineural Invasion) và LVI (Lymphovascular Invasion) **không phải output của AI** vì PANDA không có nhãn này. Hai trường này chuyển thành **trường nhập tay** ở mục 8.6 bên dưới, mô phỏng luồng làm việc thật của bác sĩ mà không cường điệu khả năng model.
 
 ### 8.6. Review & Diagnostic Fields (đơn giản hóa)
 - Người dùng xem kết quả AI, có thể chỉnh sửa nhãn (nếu còn thời gian triển khai công cụ vẽ lại vùng).
@@ -174,7 +174,7 @@ Vì đồ án không có nhiều người dùng thật đồng thời, MVP chỉ
 ### 9.3. Security (mức cơ bản hợp lý)
 - HTTPS khi deploy public demo.
 - Mật khẩu hash bằng BCrypt.
-- **Dữ liệu công khai (SICAPv2)**: không có vấn đề PII vì đã ẩn danh sẵn.
+- **Dữ liệu công khai (PANDA)**: không có vấn đề PII vì đã ẩn danh sẵn.
 - **Dữ liệu thật từ hệ thống desktop (qua module Di trú dữ liệu, mục 8.3)**: đây là dữ liệu bệnh nhân thật (Họ tên, Tuổi, Kết luận), nên bắt buộc:
   - Ẩn danh hóa (loại bỏ hoặc mã hóa Họ tên, chỉ giữ mã ca bệnh) trước khi dùng cho huấn luyện model, demo công khai, hoặc đưa vào báo cáo/slide bảo vệ đồ án.
   - Không public demo (link công khai không yêu cầu đăng nhập) nếu hệ thống còn chứa dữ liệu chưa ẩn danh.
@@ -187,7 +187,7 @@ Vì đồ án không có nhiều người dùng thật đồng thời, MVP chỉ
 | Frontend | React (TypeScript) hoặc React đơn giản + TailwindCSS | Giữ nguyên, không cần ShadCN đầy đủ nếu tốn thời gian |
 | Backend API | FastAPI (Python) | Giữ nguyên |
 | Xử lý bất đồng bộ | FastAPI BackgroundTasks (thay vì Celery+Redis) | Đủ cho quy mô demo 1 người dùng tại một thời điểm; Celery/Redis chuyển sang Production Vision |
-| AI / Deep Learning | PyTorch, `segmentation-models-pytorch` (encoder ResNeXt50_32x4d) | Khớp với notebook đã xây dựng |
+| AI / Deep Learning | PyTorch, `torchvision` (classification), `segmentation-models-pytorch` (segmentation) | Khớp với notebook đã xây dựng |
 | Image Processing | OpenCV / Histolab (Macenko normalization) | Giữ nguyên |
 | Database | **SQLite** | Khớp với kiến trúc 3 tầng đã thống nhất; đủ cho demo, không cần PostgreSQL |
 | File Storage | Local File System | Không cần MinIO cho quy mô demo |
@@ -197,9 +197,10 @@ Vì đồ án không có nhiều người dùng thật đồng thời, MVP chỉ
 
 ## 11. Success Metrics (MVP — đo được trong phạm vi đồ án)
 
-**Chỉ số AI (đo trên tập test SICAPv2, theo 4-fold cross-validation đã thiết lập):**
-- Accuracy / F1-Score cho bài toán segmentation nhị phân (IoU, Dice).
-- Accuracy / F1-Score cho phân loại Gleason Pattern 3/4/5 trên tập test.
+**Chỉ số AI (đo trên tập test PANDA, chia 80/10/10 theo subject — xem lưu ý bên dưới):**
+- Segmentation: pixel accuracy, mean IoU, mean DSC, tính trên 4 lớp mô (lành tính, Gleason 3/4/5); nền và mô đệm không tính vào điểm.
+- Classification: accuracy, F1, precision, sensitivity, specificity (macro) trên 4 lớp — lành tính và Gleason Pattern 3/4/5.
+- **Lưu ý phương pháp, bắt buộc nêu khi báo cáo**: bài báo tham chiếu dùng 5-fold cross-validation theo subject; đồ án này dùng **một lần chia 80/10/10 tĩnh** (đánh đổi vì giới hạn thời gian/tài nguyên Colab), nên **không so trực tiếp** các con số Accuracy/F1 ở đây với bảng của bài báo.
 - *(Bỏ yêu cầu "Cohen's Kappa so với hội đồng chuyên gia" trừ khi Sea thực sự có bác sĩ hợp tác đánh giá lại — nếu có, đây sẽ là điểm cộng rất lớn cho đồ án, nhưng không nên đặt làm chỉ số bắt buộc.)*
 
 **Chỉ số hệ thống:**
@@ -225,7 +226,7 @@ Phần này giữ lại nguyên vẹn tinh thần của bản PRD v2 như một 
 
 ## 13. Roadmap (Thesis Timeline — thực tế)
 
-- **Giai đoạn 1 — Nền tảng & Dữ liệu** *(đã hoàn thành phần lớn)*: Phân tích dataset SICAPv2, thiết kế lại bài toán segmentation (binary), xây dựng notebook training PyTorch với đầy đủ hạ tầng huấn luyện (mixed precision, 4-fold CV, checkpoint/resume, early stopping).
+- **Giai đoạn 1 — Nền tảng & Dữ liệu** *(đã hoàn thành phần lớn)*: Phân tích dataset PANDA (lọc riêng slide Radboud, QC nhiều bước), thiết kế bài toán segmentation 6 lớp, xây dựng notebook training PyTorch với đầy đủ hạ tầng huấn luyện (mixed precision, chia 80/10/10 theo subject, checkpoint/resume, early stopping).
   - *(Bổ sung mới)*: Khảo sát database của hệ thống desktop hiện có (engine lưu trữ, số lượng ca/slide/ảnh thực tế, chất lượng trường "Kết Luận") để đánh giá khả năng dùng làm dữ liệu bổ sung; xác nhận với cơ sở y tế về việc được phép sử dụng dữ liệu.
 - **Giai đoạn 2 — Huấn luyện & Đánh giá Model**: Hoàn tất huấn luyện 2 model trên Colab Pro, đánh giá kết quả trên tập test, ghi nhận số liệu cho báo cáo.
 - **Giai đoạn 3 — Xây dựng Web App (3 tầng)**: FastAPI backend + model serving (SQLite), frontend cơ bản, pipeline upload → inference → hiển thị kết quả. Xây dựng module Case Management (Ca bệnh → Slide → Ảnh) và script di trú dữ liệu từ hệ thống desktop.

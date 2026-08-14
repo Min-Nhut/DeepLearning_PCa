@@ -2,6 +2,7 @@
 __pycache__/
 *.pyc
 .env
+credentials.local.txt
 
 # Uploads - ignore contents but keep folder structure
 uploads/*

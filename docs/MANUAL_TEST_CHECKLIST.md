@@ -1,8 +1,11 @@
 # Kịch bản kiểm thử thủ công — ProstaAI
 
-Phần tự động hoá phủ logic và API ([docs/TEST_PLAN.md](TEST_PLAN.md) — 155 test backend +
+Phần tự động hoá phủ logic và API ([docs/TEST_PLAN.md](TEST_PLAN.md) — 203 test backend +
 29 test frontend). Tài liệu này phủ phần còn lại: **giao diện, tương tác và thiết bị**, là
 những thứ không đáng hoặc không thể tự động hoá trong phạm vi đề tài.
+
+Ba mục **B6, B7 và E8b** là chốt hồi quy cho ba lỗi giao diện đã sửa nhưng nằm trong
+component nên không có test tự động — đừng bỏ qua chúng.
 
 Chạy trọn bộ trước mỗi mốc nộp. Thời lượng ~30 phút.
 
@@ -81,6 +84,7 @@ Chạy trọn bộ trước mỗi mốc nộp. Thời lượng ~30 phút.
 | E6 | "Xác nhận & khóa" | Form bị khoá, huy hiệu đổi "Đã khóa" | ☐ |
 | E7 | "Xem báo cáo" | Hiện dữ liệu thật, **không có chữ ký bác sĩ bịa** | ☐ |
 | E8 | Kiểm tra báo cáo có diện tích ung thư và chiều dài u | Hiện số thật, không phải "Chưa có…" | ☐ |
+| E8b | Đọc "Độ tin cậy AI" ở cả trình xem và báo cáo | Phần trăm hợp lý (vd 68%), **không phải 1%** — độ tin cậy lưu dạng 0–1, từng bị hiển thị thiếu nhân 100 | ☐ |
 | E9 | Bấm "In" | Mở hộp thoại in của trình duyệt | ☐ |
 | E10 | Về chi tiết ca | Điểm Gleason **cấp ca** + dòng "x/y ảnh đã xác nhận" | ☐ |
 
@@ -125,8 +129,8 @@ Chạy trọn bộ trước mỗi mốc nộp. Thời lượng ~30 phút.
 | B. Ca/slide/ảnh | 9 | | | |
 | C. Pipeline AI & trình xem | 9 | | | |
 | D. Đo đạc & đánh dấu | 6 | | | |
-| E. Chẩn đoán & báo cáo | 10 | | | |
+| E. Chẩn đoán & báo cáo | 11 | | | |
 | F. Quản trị | 8 | | | |
-| **Tổng** | **47** | | | |
+| **Tổng** | **48** | | | |
 
 Người kiểm thử: ……………………  Ngày: ……………  Phiên bản/commit: ……………………

@@ -1,0 +1,316 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1560 1000" width="1560" height="1000" font-family="Segoe UI, Arial, sans-serif">
+<rect width="1560" height="1000" fill="#ffffff"/>
+<text x="780" y="30" text-anchor="middle" font-size="18" font-weight="700" fill="#12263f">Sơ đồ quan hệ thực thể (ERD) — Cơ sở dữ liệu ProstaAI</text>
+<polyline points="300,150 350,150" fill="none" stroke="#42536b" stroke-width="1.4"/>
+<text x="306" y="145" font-size="11" font-weight="700" fill="#2f5d8f">1</text>
+<text x="332" y="145" font-size="11" font-weight="700" fill="#2f5d8f">N</text>
+<polyline points="580,150 630,150" fill="none" stroke="#42536b" stroke-width="1.4"/>
+<text x="586" y="145" font-size="11" font-weight="700" fill="#2f5d8f">1</text>
+<text x="612" y="145" font-size="11" font-weight="700" fill="#2f5d8f">N</text>
+<polyline points="880,150 930,150" fill="none" stroke="#42536b" stroke-width="1.4"/>
+<text x="886" y="145" font-size="11" font-weight="700" fill="#2f5d8f">1</text>
+<text x="912" y="145" font-size="11" font-weight="700" fill="#2f5d8f">N</text>
+<polyline points="1205,130 1255,130" fill="none" stroke="#42536b" stroke-width="1.4"/>
+<text x="1211" y="125" font-size="11" font-weight="700" fill="#2f5d8f">1</text>
+<text x="1240" y="125" font-size="11" font-weight="700" fill="#2f5d8f">N</text>
+<polyline points="1205,170 1230,170 1230,350 1255,350" fill="none" stroke="#42536b" stroke-width="1.4"/>
+<text x="1211" y="165" font-size="11" font-weight="700" fill="#2f5d8f">1</text>
+<text x="1240" y="345" font-size="11" font-weight="700" fill="#2f5d8f">N</text>
+<polyline points="1205,210 1218,210 1218,545 1255,545" fill="none" stroke="#42536b" stroke-width="1.4"/>
+<text x="1211" y="205" font-size="11" font-weight="700" fill="#2f5d8f">1</text>
+<text x="1240" y="540" font-size="11" font-weight="700" fill="#2f5d8f">N</text>
+<polyline points="700,358 700,395" fill="none" stroke="#42536b" stroke-width="1.4"/>
+<text x="706" y="376" font-size="11" font-weight="700" fill="#2f5d8f">1</text>
+<text x="706" y="392" font-size="11" font-weight="700" fill="#2f5d8f">N</text>
+<polyline points="630,300 612,300 612,660 630,660" fill="none" stroke="#42536b" stroke-width="1.4"/>
+<text x="618" y="295" font-size="11" font-weight="700" fill="#2f5d8f">1</text>
+<text x="636" y="675" font-size="11" font-weight="700" fill="#2f5d8f">N</text>
+<polyline points="820,358 820,375 930,375" fill="none" stroke="#42536b" stroke-width="1.4"/>
+<text x="826" y="353" font-size="11" font-weight="700" fill="#2f5d8f">1</text>
+<text x="906" y="370" font-size="11" font-weight="700" fill="#2f5d8f">N</text>
+<polyline points="1030,290 1030,330" fill="none" stroke="#8899ad" stroke-width="1.4" stroke-dasharray="5 4"/>
+<text x="1036" y="308" font-size="11" font-weight="700" fill="#2f5d8f">1</text>
+<text x="1036" y="326" font-size="11" font-weight="700" fill="#2f5d8f">N</text>
+<polyline points="160,324 160,365" fill="none" stroke="#42536b" stroke-width="1.4"/>
+<text x="166" y="342" font-size="11" font-weight="700" fill="#2f5d8f">1</text>
+<text x="166" y="362" font-size="11" font-weight="700" fill="#2f5d8f">N</text>
+<polyline points="50,575 22,575 22,48 170,48 170,70" fill="none" stroke="#8899ad" stroke-width="1.4" stroke-dasharray="5 4"/>
+<text x="28" y="570" font-size="11" font-weight="700" fill="#2f5d8f">1</text>
+<text x="176" y="66" font-size="11" font-weight="700" fill="#2f5d8f">N</text>
+<polyline points="22,48 760,48 760,70" fill="none" stroke="#8899ad" stroke-width="1.4" stroke-dasharray="5 4"/>
+<text x="766" y="66" font-size="11" font-weight="700" fill="#2f5d8f">N</text>
+<polyline points="760,48 1080,48 1080,70" fill="none" stroke="#8899ad" stroke-width="1.4" stroke-dasharray="5 4"/>
+<text x="1086" y="66" font-size="11" font-weight="700" fill="#2f5d8f">N</text>
+<polyline points="230,540 230,500" fill="none" stroke="#8899ad" stroke-width="1.4" stroke-dasharray="5 4"/>
+<text x="236" y="536" font-size="11" font-weight="700" fill="#2f5d8f">1</text>
+<text x="236" y="496" font-size="11" font-weight="700" fill="#2f5d8f">N</text>
+<polyline points="120,709 120,745" fill="none" stroke="#8899ad" stroke-width="1.4" stroke-dasharray="5 4"/>
+<text x="126" y="726" font-size="11" font-weight="700" fill="#2f5d8f">1</text>
+<text x="126" y="742" font-size="11" font-weight="700" fill="#2f5d8f">N</text>
+<polyline points="300,620 350,620" fill="none" stroke="#8899ad" stroke-width="1.4" stroke-dasharray="5 4"/>
+<text x="306" y="615" font-size="11" font-weight="700" fill="#2f5d8f">1</text>
+<text x="332" y="615" font-size="11" font-weight="700" fill="#2f5d8f">N</text>
+<polyline points="300,690 330,690 330,960 700,960 700,786" fill="none" stroke="#8899ad" stroke-width="1.4" stroke-dasharray="5 4"/>
+<text x="306" y="685" font-size="11" font-weight="700" fill="#2f5d8f">1</text>
+<text x="706" y="800" font-size="11" font-weight="700" fill="#2f5d8f">N</text>
+<polyline points="700,960 910,960 910,700 930,700" fill="none" stroke="#8899ad" stroke-width="1.4" stroke-dasharray="5 4"/>
+<text x="906" y="694" font-size="11" font-weight="700" fill="#2f5d8f">N</text>
+<rect x="50" y="70" width="250" height="254" rx="6" fill="#ffffff" stroke="#1e3a5f" stroke-width="1.6"/>
+<path d="M 50 110 h 250 v -34 a 6 6 0 0 0 -6 -6 h -238 a 6 6 0 0 0 -6 6 z" fill="#e8eef7" stroke="#1e3a5f" stroke-width="1.6"/>
+<text x="60" y="87" font-size="12.5" font-weight="700" fill="#12263f">cases</text>
+<text x="60" y="102" font-size="10.5" fill="#5a6b82">Ca bệnh</text>
+<text x="62" y="123" font-size="11" font-weight="700" fill="#12263f" text-decoration="underline">id</text>
+<text x="288" y="123" font-size="9.5" font-weight="700" fill="#b8860b" text-anchor="end">PK</text>
+<text x="62" y="140" font-size="11" font-weight="400" fill="#3d4f66">case_code</text>
+<text x="288" y="140" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<text x="62" y="157" font-size="11" font-weight="400" fill="#3d4f66">case_year</text>
+<text x="62" y="174" font-size="11" font-weight="400" fill="#3d4f66">patient_name</text>
+<text x="62" y="191" font-size="11" font-weight="400" fill="#3d4f66">patient_age</text>
+<text x="62" y="208" font-size="11" font-weight="400" fill="#3d4f66">conclusion</text>
+<text x="62" y="225" font-size="11" font-weight="400" fill="#3d4f66">is_anonymized</text>
+<text x="288" y="225" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<text x="62" y="242" font-size="11" font-weight="400" fill="#3d4f66">source</text>
+<text x="288" y="242" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<text x="62" y="259" font-size="11" font-weight="400" fill="#3d4f66">legacy_case_id</text>
+<text x="62" y="276" font-size="11" font-weight="400" fill="#12263f">created_by</text>
+<text x="288" y="276" font-size="9.5" font-weight="700" fill="#2f6f4f" text-anchor="end">FK</text>
+<text x="62" y="293" font-size="11" font-weight="400" fill="#3d4f66">created_at</text>
+<text x="288" y="293" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<text x="62" y="310" font-size="11" font-weight="400" fill="#3d4f66">updated_at</text>
+<text x="288" y="310" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<rect x="350" y="70" width="230" height="135" rx="6" fill="#ffffff" stroke="#1e3a5f" stroke-width="1.6"/>
+<path d="M 350 110 h 230 v -34 a 6 6 0 0 0 -6 -6 h -218 a 6 6 0 0 0 -6 6 z" fill="#e8eef7" stroke="#1e3a5f" stroke-width="1.6"/>
+<text x="360" y="87" font-size="12.5" font-weight="700" fill="#12263f">slides</text>
+<text x="360" y="102" font-size="10.5" fill="#5a6b82">Slide (lam kính)</text>
+<text x="362" y="123" font-size="11" font-weight="700" fill="#12263f" text-decoration="underline">id</text>
+<text x="568" y="123" font-size="9.5" font-weight="700" fill="#b8860b" text-anchor="end">PK</text>
+<text x="362" y="140" font-size="11" font-weight="400" fill="#12263f">case_id</text>
+<text x="568" y="140" font-size="9.5" font-weight="700" fill="#2f6f4f" text-anchor="end">FK</text>
+<text x="362" y="157" font-size="11" font-weight="400" fill="#3d4f66">slide_number</text>
+<text x="568" y="157" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<text x="362" y="174" font-size="11" font-weight="400" fill="#3d4f66">legacy_slide_label</text>
+<text x="362" y="191" font-size="11" font-weight="400" fill="#3d4f66">created_at</text>
+<text x="568" y="191" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<rect x="630" y="70" width="250" height="288" rx="6" fill="#ffffff" stroke="#1e3a5f" stroke-width="1.6"/>
+<path d="M 630 110 h 250 v -34 a 6 6 0 0 0 -6 -6 h -238 a 6 6 0 0 0 -6 6 z" fill="#e8eef7" stroke="#1e3a5f" stroke-width="1.6"/>
+<text x="640" y="87" font-size="12.5" font-weight="700" fill="#12263f">images</text>
+<text x="640" y="102" font-size="10.5" fill="#5a6b82">Ảnh vi trường</text>
+<text x="642" y="123" font-size="11" font-weight="700" fill="#12263f" text-decoration="underline">id</text>
+<text x="868" y="123" font-size="9.5" font-weight="700" fill="#b8860b" text-anchor="end">PK</text>
+<text x="642" y="140" font-size="11" font-weight="400" fill="#12263f">slide_id</text>
+<text x="868" y="140" font-size="9.5" font-weight="700" fill="#2f6f4f" text-anchor="end">FK</text>
+<text x="642" y="157" font-size="11" font-weight="400" fill="#3d4f66">image_number</text>
+<text x="868" y="157" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<text x="642" y="174" font-size="11" font-weight="400" fill="#3d4f66">file_path</text>
+<text x="868" y="174" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<text x="642" y="191" font-size="11" font-weight="400" fill="#3d4f66">description</text>
+<text x="642" y="208" font-size="11" font-weight="400" fill="#3d4f66">width_px</text>
+<text x="642" y="225" font-size="11" font-weight="400" fill="#3d4f66">height_px</text>
+<text x="642" y="242" font-size="11" font-weight="400" fill="#3d4f66">format</text>
+<text x="642" y="259" font-size="11" font-weight="400" fill="#3d4f66">captured_at</text>
+<text x="642" y="276" font-size="11" font-weight="400" fill="#12263f">uploaded_by</text>
+<text x="868" y="276" font-size="9.5" font-weight="700" fill="#2f6f4f" text-anchor="end">FK</text>
+<text x="642" y="293" font-size="11" font-weight="400" fill="#3d4f66">source</text>
+<text x="868" y="293" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<text x="642" y="310" font-size="11" font-weight="400" fill="#3d4f66">legacy_image_id</text>
+<text x="642" y="327" font-size="11" font-weight="400" fill="#3d4f66">created_at</text>
+<text x="868" y="327" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<text x="642" y="344" font-size="11" font-weight="400" fill="#3d4f66">magnification</text>
+<rect x="930" y="70" width="275" height="220" rx="6" fill="#ffffff" stroke="#1e3a5f" stroke-width="1.6"/>
+<path d="M 930 110 h 275 v -34 a 6 6 0 0 0 -6 -6 h -263 a 6 6 0 0 0 -6 6 z" fill="#e8eef7" stroke="#1e3a5f" stroke-width="1.6"/>
+<text x="940" y="87" font-size="12.5" font-weight="700" fill="#12263f">inference_runs</text>
+<text x="940" y="102" font-size="10.5" fill="#5a6b82">Lần chạy AI</text>
+<text x="942" y="123" font-size="11" font-weight="700" fill="#12263f" text-decoration="underline">id</text>
+<text x="1193" y="123" font-size="9.5" font-weight="700" fill="#b8860b" text-anchor="end">PK</text>
+<text x="942" y="140" font-size="11" font-weight="400" fill="#12263f">image_id</text>
+<text x="1193" y="140" font-size="9.5" font-weight="700" fill="#2f6f4f" text-anchor="end">FK</text>
+<text x="942" y="157" font-size="11" font-weight="400" fill="#3d4f66">status</text>
+<text x="1193" y="157" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<text x="942" y="174" font-size="11" font-weight="400" fill="#3d4f66">segmentation_model_version</text>
+<text x="942" y="191" font-size="11" font-weight="400" fill="#3d4f66">classification_model_version</text>
+<text x="942" y="208" font-size="11" font-weight="400" fill="#3d4f66">error_message</text>
+<text x="942" y="225" font-size="11" font-weight="400" fill="#12263f">triggered_by</text>
+<text x="1193" y="225" font-size="9.5" font-weight="700" fill="#2f6f4f" text-anchor="end">FK</text>
+<text x="942" y="242" font-size="11" font-weight="400" fill="#3d4f66">started_at</text>
+<text x="942" y="259" font-size="11" font-weight="400" fill="#3d4f66">completed_at</text>
+<text x="942" y="276" font-size="11" font-weight="400" fill="#3d4f66">created_at</text>
+<text x="1193" y="276" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<rect x="1255" y="70" width="255" height="169" rx="6" fill="#ffffff" stroke="#1e3a5f" stroke-width="1.6"/>
+<path d="M 1255 110 h 255 v -34 a 6 6 0 0 0 -6 -6 h -243 a 6 6 0 0 0 -6 6 z" fill="#e8eef7" stroke="#1e3a5f" stroke-width="1.6"/>
+<text x="1265" y="87" font-size="12.5" font-weight="700" fill="#12263f">segmentation_results</text>
+<text x="1265" y="102" font-size="10.5" fill="#5a6b82">Kết quả phân đoạn</text>
+<text x="1267" y="123" font-size="11" font-weight="700" fill="#12263f" text-decoration="underline">id</text>
+<text x="1498" y="123" font-size="9.5" font-weight="700" fill="#b8860b" text-anchor="end">PK</text>
+<text x="1267" y="140" font-size="11" font-weight="400" fill="#12263f">run_id</text>
+<text x="1498" y="140" font-size="9.5" font-weight="700" fill="#2f6f4f" text-anchor="end">FK</text>
+<text x="1267" y="157" font-size="11" font-weight="400" fill="#3d4f66">mask_file_path</text>
+<text x="1498" y="157" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<text x="1267" y="174" font-size="11" font-weight="400" fill="#3d4f66">cancer_area_px</text>
+<text x="1267" y="191" font-size="11" font-weight="400" fill="#3d4f66">total_tissue_area_px</text>
+<text x="1267" y="208" font-size="11" font-weight="400" fill="#3d4f66">cancer_area_percentage</text>
+<text x="1267" y="225" font-size="11" font-weight="400" fill="#3d4f66">created_at</text>
+<text x="1498" y="225" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<rect x="1255" y="258" width="255" height="186" rx="6" fill="#ffffff" stroke="#1e3a5f" stroke-width="1.6"/>
+<path d="M 1255 298 h 255 v -34 a 6 6 0 0 0 -6 -6 h -243 a 6 6 0 0 0 -6 6 z" fill="#e8eef7" stroke="#1e3a5f" stroke-width="1.6"/>
+<text x="1265" y="275" font-size="12.5" font-weight="700" fill="#12263f">classification_results</text>
+<text x="1265" y="290" font-size="10.5" fill="#5a6b82">Kết quả phân loại</text>
+<text x="1267" y="311" font-size="11" font-weight="700" fill="#12263f" text-decoration="underline">id</text>
+<text x="1498" y="311" font-size="9.5" font-weight="700" fill="#b8860b" text-anchor="end">PK</text>
+<text x="1267" y="328" font-size="11" font-weight="400" fill="#12263f">run_id</text>
+<text x="1498" y="328" font-size="9.5" font-weight="700" fill="#2f6f4f" text-anchor="end">FK</text>
+<text x="1267" y="345" font-size="11" font-weight="400" fill="#3d4f66">primary_pattern</text>
+<text x="1267" y="362" font-size="11" font-weight="400" fill="#3d4f66">primary_confidence</text>
+<text x="1267" y="379" font-size="11" font-weight="400" fill="#3d4f66">secondary_pattern</text>
+<text x="1267" y="396" font-size="11" font-weight="400" fill="#3d4f66">secondary_confidence</text>
+<text x="1267" y="413" font-size="11" font-weight="400" fill="#3d4f66">heatmap_file_path</text>
+<text x="1267" y="430" font-size="11" font-weight="400" fill="#3d4f66">created_at</text>
+<text x="1498" y="430" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<rect x="1255" y="470" width="255" height="152" rx="6" fill="#ffffff" stroke="#1e3a5f" stroke-width="1.6"/>
+<path d="M 1255 510 h 255 v -34 a 6 6 0 0 0 -6 -6 h -243 a 6 6 0 0 0 -6 6 z" fill="#e8eef7" stroke="#1e3a5f" stroke-width="1.6"/>
+<text x="1265" y="487" font-size="12.5" font-weight="700" fill="#12263f">stage3_results</text>
+<text x="1265" y="502" font-size="10.5" fill="#5a6b82">Kết quả hợp nhất ISUP</text>
+<text x="1267" y="523" font-size="11" font-weight="700" fill="#12263f" text-decoration="underline">id</text>
+<text x="1498" y="523" font-size="9.5" font-weight="700" fill="#b8860b" text-anchor="end">PK</text>
+<text x="1267" y="540" font-size="11" font-weight="400" fill="#12263f">run_id</text>
+<text x="1498" y="540" font-size="9.5" font-weight="700" fill="#2f6f4f" text-anchor="end">FK</text>
+<text x="1267" y="557" font-size="11" font-weight="400" fill="#3d4f66">isup_grade</text>
+<text x="1267" y="574" font-size="11" font-weight="400" fill="#3d4f66">confidence</text>
+<text x="1267" y="591" font-size="11" font-weight="400" fill="#3d4f66">classification_pct_json</text>
+<text x="1267" y="608" font-size="11" font-weight="400" fill="#3d4f66">created_at</text>
+<text x="1498" y="608" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<rect x="630" y="395" width="250" height="169" rx="6" fill="#ffffff" stroke="#1e3a5f" stroke-width="1.6"/>
+<path d="M 630 435 h 250 v -34 a 6 6 0 0 0 -6 -6 h -238 a 6 6 0 0 0 -6 6 z" fill="#e8eef7" stroke="#1e3a5f" stroke-width="1.6"/>
+<text x="640" y="412" font-size="12.5" font-weight="700" fill="#12263f">preprocessing_results</text>
+<text x="640" y="427" font-size="10.5" fill="#5a6b82">Kết quả tiền xử lý</text>
+<text x="642" y="448" font-size="11" font-weight="700" fill="#12263f" text-decoration="underline">id</text>
+<text x="868" y="448" font-size="9.5" font-weight="700" fill="#b8860b" text-anchor="end">PK</text>
+<text x="642" y="465" font-size="11" font-weight="400" fill="#12263f">image_id</text>
+<text x="868" y="465" font-size="9.5" font-weight="700" fill="#2f6f4f" text-anchor="end">FK</text>
+<text x="642" y="482" font-size="11" font-weight="400" fill="#3d4f66">normalized_image_path</text>
+<text x="642" y="499" font-size="11" font-weight="400" fill="#3d4f66">tissue_mask_path</text>
+<text x="642" y="516" font-size="11" font-weight="400" fill="#3d4f66">is_blurry</text>
+<text x="868" y="516" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<text x="642" y="533" font-size="11" font-weight="400" fill="#3d4f66">quality_score</text>
+<text x="642" y="550" font-size="11" font-weight="400" fill="#3d4f66">processed_at</text>
+<text x="868" y="550" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<rect x="630" y="600" width="250" height="186" rx="6" fill="#ffffff" stroke="#1e3a5f" stroke-width="1.6"/>
+<path d="M 630 640 h 250 v -34 a 6 6 0 0 0 -6 -6 h -238 a 6 6 0 0 0 -6 6 z" fill="#e8eef7" stroke="#1e3a5f" stroke-width="1.6"/>
+<text x="640" y="617" font-size="12.5" font-weight="700" fill="#12263f">manual_annotations</text>
+<text x="640" y="632" font-size="10.5" fill="#5a6b82">Vùng khoanh thủ công</text>
+<text x="642" y="653" font-size="11" font-weight="700" fill="#12263f" text-decoration="underline">id</text>
+<text x="868" y="653" font-size="9.5" font-weight="700" fill="#b8860b" text-anchor="end">PK</text>
+<text x="642" y="670" font-size="11" font-weight="400" fill="#12263f">image_id</text>
+<text x="868" y="670" font-size="9.5" font-weight="700" fill="#2f6f4f" text-anchor="end">FK</text>
+<text x="642" y="687" font-size="11" font-weight="400" fill="#3d4f66">points</text>
+<text x="868" y="687" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<text x="642" y="704" font-size="11" font-weight="400" fill="#3d4f66">gleason_pattern</text>
+<text x="642" y="721" font-size="11" font-weight="400" fill="#3d4f66">note</text>
+<text x="642" y="738" font-size="11" font-weight="400" fill="#12263f">created_by</text>
+<text x="868" y="738" font-size="9.5" font-weight="700" fill="#2f6f4f" text-anchor="end">FK</text>
+<text x="642" y="755" font-size="11" font-weight="400" fill="#3d4f66">created_at</text>
+<text x="868" y="755" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<text x="642" y="772" font-size="11" font-weight="400" fill="#3d4f66">updated_at</text>
+<text x="868" y="772" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<rect x="930" y="330" width="275" height="424" rx="6" fill="#ffffff" stroke="#1e3a5f" stroke-width="1.6"/>
+<path d="M 930 370 h 275 v -34 a 6 6 0 0 0 -6 -6 h -263 a 6 6 0 0 0 -6 6 z" fill="#e8eef7" stroke="#1e3a5f" stroke-width="1.6"/>
+<text x="940" y="347" font-size="12.5" font-weight="700" fill="#12263f">diagnostic_reviews</text>
+<text x="940" y="362" font-size="10.5" fill="#5a6b82">Đánh giá chẩn đoán</text>
+<text x="942" y="383" font-size="11" font-weight="700" fill="#12263f" text-decoration="underline">id</text>
+<text x="1193" y="383" font-size="9.5" font-weight="700" fill="#b8860b" text-anchor="end">PK</text>
+<text x="942" y="400" font-size="11" font-weight="400" fill="#12263f">image_id</text>
+<text x="1193" y="400" font-size="9.5" font-weight="700" fill="#2f6f4f" text-anchor="end">FK</text>
+<text x="942" y="417" font-size="11" font-weight="400" fill="#12263f">run_id</text>
+<text x="1193" y="417" font-size="9.5" font-weight="700" fill="#2f6f4f" text-anchor="end">FK</text>
+<text x="942" y="434" font-size="11" font-weight="400" fill="#3d4f66">primary_pattern</text>
+<text x="942" y="451" font-size="11" font-weight="400" fill="#3d4f66">secondary_pattern</text>
+<text x="942" y="468" font-size="11" font-weight="400" fill="#3d4f66">total_score</text>
+<text x="942" y="485" font-size="11" font-weight="400" fill="#3d4f66">grade_group</text>
+<text x="942" y="502" font-size="11" font-weight="400" fill="#3d4f66">cancer_area_percentage</text>
+<text x="942" y="519" font-size="11" font-weight="400" fill="#3d4f66">biopsy_location</text>
+<text x="942" y="536" font-size="11" font-weight="400" fill="#3d4f66">pni_present</text>
+<text x="942" y="553" font-size="11" font-weight="400" fill="#3d4f66">pni_notes</text>
+<text x="942" y="570" font-size="11" font-weight="400" fill="#3d4f66">lvi_present</text>
+<text x="942" y="587" font-size="11" font-weight="400" fill="#3d4f66">lvi_notes</text>
+<text x="942" y="604" font-size="11" font-weight="400" fill="#3d4f66">free_notes</text>
+<text x="942" y="621" font-size="11" font-weight="400" fill="#3d4f66">status</text>
+<text x="1193" y="621" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<text x="942" y="638" font-size="11" font-weight="400" fill="#12263f">reviewed_by</text>
+<text x="1193" y="638" font-size="9.5" font-weight="700" fill="#2f6f4f" text-anchor="end">FK</text>
+<text x="942" y="655" font-size="11" font-weight="400" fill="#3d4f66">confirmed_at</text>
+<text x="942" y="672" font-size="11" font-weight="400" fill="#3d4f66">created_at</text>
+<text x="1193" y="672" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<text x="942" y="689" font-size="11" font-weight="400" fill="#3d4f66">updated_at</text>
+<text x="1193" y="689" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<text x="942" y="706" font-size="11" font-weight="400" fill="#3d4f66">tumor_length_mm</text>
+<text x="942" y="723" font-size="11" font-weight="400" fill="#3d4f66">needs_second_opinion</text>
+<text x="942" y="740" font-size="11" font-weight="400" fill="#3d4f66">second_opinion_notes</text>
+<rect x="50" y="365" width="250" height="135" rx="6" fill="#ffffff" stroke="#1e3a5f" stroke-width="1.6"/>
+<path d="M 50 405 h 250 v -34 a 6 6 0 0 0 -6 -6 h -238 a 6 6 0 0 0 -6 6 z" fill="#e8eef7" stroke="#1e3a5f" stroke-width="1.6"/>
+<text x="60" y="382" font-size="12.5" font-weight="700" fill="#12263f">reports</text>
+<text x="60" y="397" font-size="10.5" fill="#5a6b82">Phiếu kết quả đã xuất</text>
+<text x="62" y="418" font-size="11" font-weight="700" fill="#12263f" text-decoration="underline">id</text>
+<text x="288" y="418" font-size="9.5" font-weight="700" fill="#b8860b" text-anchor="end">PK</text>
+<text x="62" y="435" font-size="11" font-weight="400" fill="#12263f">case_id</text>
+<text x="288" y="435" font-size="9.5" font-weight="700" fill="#2f6f4f" text-anchor="end">FK</text>
+<text x="62" y="452" font-size="11" font-weight="400" fill="#3d4f66">file_path</text>
+<text x="288" y="452" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<text x="62" y="469" font-size="11" font-weight="400" fill="#12263f">generated_by</text>
+<text x="288" y="469" font-size="9.5" font-weight="700" fill="#2f6f4f" text-anchor="end">FK</text>
+<text x="62" y="486" font-size="11" font-weight="400" fill="#3d4f66">generated_at</text>
+<text x="288" y="486" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<rect x="50" y="540" width="250" height="169" rx="6" fill="#ffffff" stroke="#1e3a5f" stroke-width="1.6"/>
+<path d="M 50 580 h 250 v -34 a 6 6 0 0 0 -6 -6 h -238 a 6 6 0 0 0 -6 6 z" fill="#e8eef7" stroke="#1e3a5f" stroke-width="1.6"/>
+<text x="60" y="557" font-size="12.5" font-weight="700" fill="#12263f">users</text>
+<text x="60" y="572" font-size="10.5" fill="#5a6b82">Người dùng</text>
+<text x="62" y="593" font-size="11" font-weight="700" fill="#12263f" text-decoration="underline">id</text>
+<text x="288" y="593" font-size="9.5" font-weight="700" fill="#b8860b" text-anchor="end">PK</text>
+<text x="62" y="610" font-size="11" font-weight="400" fill="#3d4f66">username</text>
+<text x="288" y="610" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<text x="62" y="627" font-size="11" font-weight="400" fill="#3d4f66">password_hash</text>
+<text x="288" y="627" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<text x="62" y="644" font-size="11" font-weight="400" fill="#3d4f66">full_name</text>
+<text x="62" y="661" font-size="11" font-weight="400" fill="#3d4f66">role</text>
+<text x="288" y="661" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<text x="62" y="678" font-size="11" font-weight="400" fill="#3d4f66">is_active</text>
+<text x="288" y="678" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<text x="62" y="695" font-size="11" font-weight="400" fill="#3d4f66">created_at</text>
+<text x="288" y="695" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<rect x="50" y="745" width="250" height="169" rx="6" fill="#ffffff" stroke="#1e3a5f" stroke-width="1.6"/>
+<path d="M 50 785 h 250 v -34 a 6 6 0 0 0 -6 -6 h -238 a 6 6 0 0 0 -6 6 z" fill="#e8eef7" stroke="#1e3a5f" stroke-width="1.6"/>
+<text x="60" y="762" font-size="12.5" font-weight="700" fill="#12263f">audit_logs</text>
+<text x="60" y="777" font-size="10.5" fill="#5a6b82">Nhật ký thao tác</text>
+<text x="62" y="798" font-size="11" font-weight="700" fill="#12263f" text-decoration="underline">id</text>
+<text x="288" y="798" font-size="9.5" font-weight="700" fill="#b8860b" text-anchor="end">PK</text>
+<text x="62" y="815" font-size="11" font-weight="400" fill="#12263f">user_id</text>
+<text x="288" y="815" font-size="9.5" font-weight="700" fill="#2f6f4f" text-anchor="end">FK</text>
+<text x="62" y="832" font-size="11" font-weight="400" fill="#3d4f66">action</text>
+<text x="288" y="832" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<text x="62" y="849" font-size="11" font-weight="400" fill="#3d4f66">entity_type</text>
+<text x="288" y="849" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<text x="62" y="866" font-size="11" font-weight="400" fill="#3d4f66">entity_id</text>
+<text x="62" y="883" font-size="11" font-weight="400" fill="#3d4f66">details</text>
+<text x="62" y="900" font-size="11" font-weight="400" fill="#3d4f66">created_at</text>
+<text x="288" y="900" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<rect x="350" y="560" width="240" height="118" rx="6" fill="#ffffff" stroke="#1e3a5f" stroke-width="1.6"/>
+<path d="M 350 600 h 240 v -34 a 6 6 0 0 0 -6 -6 h -228 a 6 6 0 0 0 -6 6 z" fill="#e8eef7" stroke="#1e3a5f" stroke-width="1.6"/>
+<text x="360" y="577" font-size="12.5" font-weight="700" fill="#12263f">magnification_calibration</text>
+<text x="360" y="592" font-size="10.5" fill="#5a6b82">Hiệu chỉnh µm/pixel</text>
+<text x="362" y="613" font-size="11" font-weight="700" fill="#12263f" text-decoration="underline">magnification</text>
+<text x="578" y="613" font-size="9.5" font-weight="700" fill="#b8860b" text-anchor="end">PK</text>
+<text x="362" y="630" font-size="11" font-weight="400" fill="#3d4f66">um_per_pixel</text>
+<text x="578" y="630" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<text x="362" y="647" font-size="11" font-weight="400" fill="#12263f">updated_by</text>
+<text x="578" y="647" font-size="9.5" font-weight="700" fill="#2f6f4f" text-anchor="end">FK</text>
+<text x="362" y="664" font-size="11" font-weight="400" fill="#3d4f66">updated_at</text>
+<text x="578" y="664" font-size="9.5" font-weight="700" fill="#9aa7b8" text-anchor="end">•</text>
+<rect x="930" y="790" width="580" height="112" rx="6" fill="#fbfcfe" stroke="#d8e0ea"/>
+<text x="944" y="810" font-size="11.5" font-weight="700" fill="#42536b">Chú giải</text>
+<text x="944" y="830" font-size="11" fill="#3d4f66"><tspan font-weight="700" fill="#b8860b">PK</tspan>  khóa chính (gạch chân)   <tspan font-weight="700" fill="#2f6f4f">FK</tspan>  khóa ngoại   <tspan font-weight="700" fill="#9aa7b8">•</tspan>  bắt buộc nhập</text>
+<line x1="944" y1="848" x2="990" y2="848" stroke="#42536b" stroke-width="1.4"/>
+<text x="1000" y="852" font-size="11" fill="#3d4f66">Quan hệ cấu trúc dữ liệu</text>
+<line x1="1210" y1="848" x2="1256" y2="848" stroke="#8899ad" stroke-width="1.4" stroke-dasharray="5 4"/>
+<text x="1266" y="852" font-size="11" fill="#3d4f66">Tham chiếu người thực hiện</text>
+<text x="944" y="872" font-size="11" fill="#3d4f66">1 — N: một bản ghi bên 1 ứng với nhiều bản ghi bên N.</text>
+<text x="944" y="888" font-size="11" fill="#3d4f66">Mọi khóa ngoại trỏ tới ảnh / lần chạy đều xóa lan truyền (ON DELETE CASCADE).</text>
+<text x="50" y="975" font-size="11" fill="#6b7c92">14 bảng · SQLite · khóa ngoại bật theo từng kết nối (PRAGMA foreign_keys = ON)</text>
+</svg>

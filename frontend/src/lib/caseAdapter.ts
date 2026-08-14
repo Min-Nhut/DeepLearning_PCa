@@ -1,12 +1,13 @@
-import type { ApiCase, Case } from '../types';
+import type { ApiCase, Case, GleasonPattern } from '../types';
 
 /**
  * Adapts a real backend case into the `Case` shape the existing UI (CaseRow,
- * Cases/CaseDetail/DoctorDashboard) already knows how to render. AI-derived
- * fields (gleason/primary/.../regionsCount) have no backing data yet — they
- * stay null/placeholder until the AI pipeline exists, matching CLAUDE.md's
- * documented scope boundary. `dbId` (here and on slides/images) carries the
- * real numeric id through for API calls the mock data never needed.
+ * Cases/CaseDetail/DoctorDashboard) already knows how to render. `dbId` (here
+ * and on slides/images) carries the real numeric id through for API calls the
+ * mock data never needed.
+ *
+ * The summary fields are passed through, never invented: a case with no
+ * confirmed review has no score, and the confidence is the model's own.
  */
 export function caseFromApi(c: ApiCase): Case {
   return {
@@ -18,13 +19,17 @@ export function caseFromApi(c: ApiCase): Case {
     tuoi: c.patient_age ?? '',
     ketLuan: c.conclusion ?? '',
     ngayTao: formatDate(c.created_at),
-    status: 'new',
-    gleason: null,
-    primary: null,
-    secondary: null,
-    confidence: null,
-    tumorArea: '—',
-    regionsCount: 0,
+    status: c.status,
+    gleason: gleasonOf(c),
+    primary: (c.primary_pattern as Case['primary']) ?? null,
+    secondary: (c.secondary_pattern as Case['secondary']) ?? null,
+    gleasonScore:
+      c.primary_pattern != null && c.secondary_pattern != null
+        ? `${c.primary_pattern}+${c.secondary_pattern}=${c.total_score}`
+        : null,
+    confidence: c.ai_confidence != null ? Math.round(c.ai_confidence) : null,
+    isupGrade: c.isup_grade ?? null,
+    isupConfidence: c.isup_confidence != null ? Math.round(c.isup_confidence) : null,
     slides: c.slides
       .slice()
       .sort((a, b) => a.slide_number - b.slide_number)
@@ -43,6 +48,11 @@ export function caseFromApi(c: ApiCase): Case {
           })),
       })),
   };
+}
+
+function gleasonOf(c: ApiCase): GleasonPattern | null {
+  if (c.primary_pattern != null) return String(c.primary_pattern) as GleasonPattern;
+  return c.images_confirmed > 0 ? 'benign' : null;
 }
 
 function formatDate(iso: string): string {

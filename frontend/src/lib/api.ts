@@ -10,6 +10,7 @@ import type {
   ApiUser,
   Calibration,
   CaseGleason,
+  CaseReport,
   DiagnosticReviewUpdate,
   DoctorStats,
   FlaggedReview,
@@ -110,6 +111,13 @@ export function getAvailableModels(token: string): Promise<ModelInfoApi[]> {
   return apiFetch('/api/models', {}, token);
 }
 
+/** Drops this architecture's loaded weights server-side so the next run reads
+ *  the checkpoint file again — replacing a .pt on disk otherwise has no effect
+ *  until the backend restarts. */
+export function reloadModel(token: string, taskType: string, archKey: string): Promise<ModelInfoApi> {
+  return apiFetch(`/api/admin/models/${taskType}/${archKey}/reload`, { method: 'POST' }, token);
+}
+
 export async function exportLibrary(
   token: string,
   format: 'csv' | 'json',
@@ -177,6 +185,11 @@ export function getCaseGleason(token: string, caseId: number): Promise<CaseGleas
   return apiFetch(`/api/cases/${caseId}/gleason`, {}, token);
 }
 
+/** Everything the case-level (signed) report needs, in one call. */
+export function getCaseReport(token: string, caseId: number): Promise<CaseReport> {
+  return apiFetch(`/api/cases/${caseId}/report`, {}, token);
+}
+
 export function createCase(
   token: string,
   payload: { case_code: string; case_year?: string; patient_name?: string; patient_age?: number; conclusion?: string },
@@ -190,6 +203,10 @@ export function updateCase(
   payload: Partial<{ case_code: string; case_year: string; patient_name: string; patient_age: number; conclusion: string }>,
 ): Promise<ApiCase> {
   return apiFetch(`/api/cases/${caseId}`, { method: 'PATCH', body: JSON.stringify(payload) }, token);
+}
+
+export function deleteCase(token: string, caseId: number): Promise<void> {
+  return apiFetch(`/api/cases/${caseId}`, { method: 'DELETE' }, token);
 }
 
 export function addSlide(token: string, caseId: number): Promise<ApiSlide> {

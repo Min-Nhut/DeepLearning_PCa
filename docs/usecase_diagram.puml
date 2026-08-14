@@ -1,0 +1,131 @@
+@startuml ProstaAI_UseCase
+' Sơ đồ Use Case — Hệ thống ProstaAI
+' Bản nguồn để chỉnh sửa. Bản hình đã dựng sẵn: docs/usecase_diagram.svg
+' Kết xuất: plantuml -tsvg docs/usecase_diagram.puml
+'           (hoặc dán vào https://www.plantuml.com/plantuml)
+
+left to right direction
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 13
+skinparam ArrowColor #42536B
+skinparam actorStyle awesome
+
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #2C4A6E
+  FontColor #12263F
+}
+skinparam rectangle {
+  BorderColor #1E3A5F
+  FontColor #1E3A5F
+  FontStyle bold
+}
+skinparam package {
+  BackgroundColor #F7F9FC
+  BorderColor #D8E0EA
+  FontColor #42536B
+}
+
+actor "Bác sĩ\ngiải phẫu bệnh" as BS
+actor "Quản trị viên" as QT
+actor "Camera kính hiển vi" as CAM <<device>>
+actor "Phần mềm cũ\nImageCapture" as OLD <<system>>
+
+rectangle "HỆ THỐNG ProstaAI" {
+
+  usecase "Đăng nhập hệ thống" as LOGIN
+
+  package "Cổng Bác sĩ (cổng 5173)" {
+    usecase "Xem tổng quan\n& việc cần làm" as D1
+    usecase "Quản lý ca bệnh" as D2
+    usecase "Quản lý slide trong ca" as D3
+    usecase "Tải ảnh vi trường lên" as D4
+    usecase "Chụp ảnh trực tiếp\nqua kính hiển vi" as D5
+    usecase "Xem tiêu bản\n(thu phóng sâu)" as D6
+    usecase "Chạy phân tích AI" as D7
+    usecase "Khoanh vùng thủ công" as D8
+    usecase "Đo khoảng cách\ntrên tiêu bản" as D9
+    usecase "Lập / chỉnh sửa\nđánh giá chẩn đoán" as D10
+    usecase "Đánh dấu cần hội chẩn" as D11
+    usecase "Xác nhận & khóa\nđánh giá" as D12
+    usecase "Xem & in phiếu kết quả" as D13
+  }
+
+  package "Cổng Quản trị (cổng 5174)" {
+    usecase "Xem tổng quan hệ thống" as A1
+    usecase "Quản lý người dùng" as A2
+    usecase "Xem nhật ký thao tác" as A3
+    usecase "Quản lý mô hình AI" as A4
+    usecase "Hiệu chỉnh µm/pixel\ntheo vật kính" as A5
+    usecase "Di trú dữ liệu\ntừ hệ thống cũ" as A6
+    usecase "Xuất thư viện (ẩn danh)" as A7
+  }
+
+  package "Quy trình suy diễn AI" {
+    usecase "Phân đoạn mô 6 lớp" as S1
+    usecase "Phân loại 4 lớp Gleason" as S2
+    usecase "Hợp nhất ISUP (Stage 3)" as S3
+    usecase "Tổng hợp điểm Gleason\ncấp ca bệnh" as S4
+  }
+
+  usecase "Tiền xử lý ảnh tự động" as P1
+  usecase "Sinh tháp ảnh thu phóng" as P2
+  usecase "Ghi nhật ký thao tác" as LOG
+}
+
+BS -- LOGIN
+QT -- LOGIN
+
+BS -- D1
+BS -- D2
+BS -- D3
+BS -- D4
+BS -- D5
+BS -- D6
+BS -- D7
+BS -- D8
+BS -- D9
+BS -- D10
+BS -- D11
+BS -- D12
+BS -- D13
+CAM -- D5
+
+QT -- A1
+QT -- A2
+QT -- A3
+QT -- A4
+QT -- A5
+QT -- A6
+QT -- A7
+OLD -- A6
+
+D4 ..> P1 : <<include>>
+D5 ..> P1 : <<include>>
+D6 ..> P2 : <<include>>
+D7 ..> S1 : <<include>>
+D7 ..> S2 : <<include>>
+D7 ..> S3 : <<include>>
+D13 ..> S4 : <<include>>
+
+' Mọi use case làm thay đổi dữ liệu đều <<include>> LOG. Chỉ vẽ hai liên kết
+' đại diện để giữ hình dễ đọc — xem chú thích dưới.
+D12 ..> LOG : <<include>>
+A2 ..> LOG : <<include>>
+
+note bottom of LOG
+  Mọi use case làm thay đổi dữ liệu
+  đều <<include>> use case này.
+  Sơ đồ chỉ vẽ hai liên kết đại diện.
+end note
+
+note bottom of A7
+  Hai cổng chạy trên hai origin khác nhau nên
+  hai phiên đăng nhập độc lập. Đây là ranh giới
+  phiên làm việc, không phải kiểm soát truy cập —
+  quyền thật do máy chủ cưỡng chế trên từng API.
+end note
+
+@enduml

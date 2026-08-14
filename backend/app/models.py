@@ -189,6 +189,18 @@ class DiagnosticReview(Base):
     created_at: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("(datetime('now'))"))
     updated_at: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("(datetime('now'))"))
 
+    reviewer: Mapped["User | None"] = relationship(lazy="joined")
+
+    @property
+    def reviewed_by_name(self) -> str | None:
+        """Who signed this off, by name. `reviewed_by` alone is an integer, so a
+        report could state a time but never a person — which is thin for
+        something framed as a signed diagnosis. Read through `from_attributes`,
+        so every endpoint returning a review gets it without router changes."""
+        if self.reviewer is None:
+            return None
+        return self.reviewer.full_name or self.reviewer.username
+
 
 class Report(Base):
     __tablename__ = "reports"

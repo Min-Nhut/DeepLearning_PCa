@@ -20,7 +20,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from ..preprocessing import normalize_stain
+from ..preprocessing import needs_stain_normalization, normalize_stain
 from .scale import TRAINING_UM_PER_PIXEL, patch_size_for
 
 logger = logging.getLogger(__name__)
@@ -183,17 +183,20 @@ def tile_image(
                 tissue = cv2.morphologyEx(tissue, cv2.MORPH_OPEN, _TISSUE_OPEN_KERNEL)
                 if not tissue.any():
                     continue
-            try:
-                # Stain-normalize each tissue patch against the real
-                # PANDA-derived reference before it ever reaches the models —
-                # this is the actual AI input, not just the upload-time QC
-                # derivative in preprocessing.py. Best-effort: a degenerate
-                # patch (e.g. mostly edge/glass despite passing the coarser
-                # tissue-fraction check above) falls back to the raw crop
-                # rather than failing the whole run.
-                crop = normalize_stain(crop)
-            except (ValueError, np.linalg.LinAlgError):
-                pass
+            # Stain-normalise towards the training distribution, but ONLY for
+            # patches that are actually far from it. Doing this unconditionally
+            # was measured to cost 82% of mean IoU on in-domain data, because
+            # the models were trained without any colour augmentation and have
+            # no colour robustness; doing it never leaves real microscope
+            # captures ~40 LAB units outside anything the models ever saw. See
+            # docs/ABLATION_STAIN_NORM.md for both measurements.
+            if needs_stain_normalization(crop):
+                try:
+                    crop = normalize_stain(crop)
+                except (ValueError, np.linalg.LinAlgError):
+                    # Degenerate patch (mostly glass despite passing the tissue
+                    # test) — the raw crop is the honest fallback.
+                    pass
             # Pad last, so the replicated border copies already-normalized
             # pixels and the Macenko fit above never sees duplicated edges.
             patches.append(Patch(

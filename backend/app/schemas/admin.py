@@ -65,6 +65,9 @@ class ModelInfo(BaseModel):
     trained_at: str | None = None  # computed from checkpoint file mtime, None if missing
     status: str = "pending"  # "active" if checkpoint_available else "pending"
     checkpoint_available: bool = False
+    # Best available model for this task by its own recorded evaluation — the
+    # picker defaults here and labels it, so the choice is informed.
+    recommended: bool = False
 
 
 # ---------- migration ----------

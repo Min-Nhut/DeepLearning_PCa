@@ -12,7 +12,7 @@ import type { Case } from '../types';
 
 const MAX_SLIDES = 12;
 
-export function CaseDetail({ case: c, token, onBack, onEdit, onGoResult, onGoUpload, onAnnotate, onReload }: {
+export function CaseDetail({ case: c, token, onBack, onEdit, onGoResult, onGoUpload, onAnnotate, onReload, onCaseReport, onDeleteCase }: {
   case: Case;
   token: string;
   onBack: () => void;
@@ -21,11 +21,14 @@ export function CaseDetail({ case: c, token, onBack, onEdit, onGoResult, onGoUpl
   onGoUpload: (slideDbId?: number) => void;
   onAnnotate: (imageDbId: number) => void;
   onReload: () => void;
+  onCaseReport: () => void;
+  onDeleteCase: () => void;
 }) {
   const [addingSlide, setAddingSlide] = useState(false);
   const [slideError, setSlideError] = useState<string | null>(null);
   const [busySlideId, setBusySlideId] = useState<number | null>(null);
   const [deletingImageId, setDeletingImageId] = useState<number | null>(null);
+  const [deletingCase, setDeletingCase] = useState(false);
   const meta: [string, string | number][] = [['Mã số', c.maSo], ['Mã năm', c.maNam], ['Họ tên bệnh nhân', c.hoTen], ['Tuổi', c.tuoi]];
   // Case-level Gleason (CAP protocol: 1 case can have up to 12 slides, but the
   // signed report is per-case, not per-slide) — computed live across every
@@ -100,12 +103,43 @@ export function CaseDetail({ case: c, token, onBack, onEdit, onGoResult, onGoUpl
     }
   }
 
+  async function handleDeleteCase() {
+    const totalImages = c.slides.reduce((sum, s) => sum + s.images.length, 0);
+    const warning = totalImages > 0
+      ? `Xóa ca ${c.id} — ${c.hoTen}?\n\n${c.slides.length} slide và ${totalImages} ảnh cùng toàn bộ kết quả AI và vùng đánh dấu sẽ bị xóa vĩnh viễn. Thao tác này không thể hoàn tác.`
+      : `Xóa ca ${c.id} — ${c.hoTen}? Thao tác này không thể hoàn tác.`;
+    if (!window.confirm(warning)) return;
+    if (!c.dbId) return;
+    setDeletingCase(true);
+    try {
+      await api.deleteCase(token, c.dbId);
+      onDeleteCase();
+    } catch (err) {
+      setSlideError(err instanceof api.ApiError ? err.message : 'Xóa ca bệnh thất bại — kiểm tra kết nối tới máy chủ.');
+    } finally {
+      setDeletingCase(false);
+    }
+  }
+
   return (
     <div style={{ padding: 24, maxWidth: 1200, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <Button variant="ghost" size="sm" iconLeft={<Icon name="arrow-left" />} onClick={onBack}>Danh sách ca</Button>
         <div style={{ display: 'flex', gap: 8 }}>
           <Button variant="secondary" size="sm" iconLeft={<Icon name="pencil" />} onClick={() => onEdit(c)}>Sửa ca</Button>
+          {/* Destructive action — separated visually from the non-destructive ones. */}
+          <Button
+            variant="secondary"
+            size="sm"
+            iconLeft={<Icon name={deletingCase ? 'loader-2' : 'trash-2'} style={deletingCase ? { animation: 'pa-spin 1s linear infinite' } : { color: 'var(--red-600)' }} />}
+            onClick={handleDeleteCase}
+            disabled={deletingCase || !c.dbId}
+            style={{ color: 'var(--red-600)', borderColor: 'var(--red-300)' }}
+          >
+            {deletingCase ? 'Đang xóa…' : 'Xóa ca'}
+          </Button>
+          {/* The signed document is per case, not per image — see CaseReport.tsx. */}
+          <Button variant="primary" size="sm" iconLeft={<Icon name="file-text" />} onClick={onCaseReport}>Phiếu kết quả ca</Button>
         </div>
       </div>
       <Card padding="none">
@@ -114,23 +148,43 @@ export function CaseDetail({ case: c, token, onBack, onEdit, onGoResult, onGoUpl
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--blue-800)', marginBottom: 2 }}>{c.id}</div>
             <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, margin: 0, color: 'var(--text-strong)' }}>{c.hoTen}</h2>
           </div>
-          {caseGleason && caseGleason.primary_pattern != null ? (
-            <>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 2 }}>Điểm Gleason toàn ca</div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, color: 'var(--brand)' }}>{`${caseGleason.primary_pattern}+${caseGleason.secondary_pattern}=${caseGleason.total_score}`}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{caseGleason.images_confirmed}/{caseGleason.images_total} ảnh đã xác nhận</div>
+          {/* Primary: ISUP Grade from Stage 3 AI — available as soon as a run
+              completes, no doctor review needed. Secondary: confirmed Gleason
+              aggregation (shown when the doctor has signed off on images). */}
+          <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+            {c.isupGrade != null ? (
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 2 }}>ISUP Grade (AI)</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 26, fontWeight: 700,
+                  color: c.isupGrade === 0 ? 'var(--gleason-benign)'
+                       : c.isupGrade <= 2 ? 'var(--gleason-3)'
+                       : c.isupGrade <= 3 ? 'var(--gleason-4)'
+                       : 'var(--gleason-5)' }}>
+                  Grade {c.isupGrade}
+                </div>
+                {c.isupConfidence != null && (
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>Độ tin cậy AI: {c.isupConfidence}%</div>
+                )}
               </div>
-              <GleasonChip pattern={String(caseGleason.primary_pattern)} />
-            </>
-          ) : caseGleason && caseGleason.images_confirmed > 0 ? (
-            <div style={{ textAlign: 'right' }}>
-              <Badge tone="success">Toàn ca: Lành tính</Badge>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{caseGleason.images_confirmed}/{caseGleason.images_total} ảnh đã xác nhận</div>
-            </div>
-          ) : (
-            <Badge tone="neutral">Chưa đủ dữ liệu (chưa có ảnh xác nhận)</Badge>
-          )}
+            ) : (
+              <Badge tone="neutral">Chưa có kết quả AI</Badge>
+            )}
+            {/* Doctor-confirmed Gleason — only shown when at least one image is signed off */}
+            {caseGleason && caseGleason.images_confirmed > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {caseGleason.primary_pattern != null ? (
+                  <>
+                    <Badge tone="success">Bác sĩ: {caseGleason.primary_pattern}+{caseGleason.secondary_pattern}={caseGleason.total_score}</Badge>
+                    <GleasonChip pattern={String(caseGleason.primary_pattern)} />
+                  </>
+                ) : (
+                  <Badge tone="success">Bác sĩ: Lành tính</Badge>
+                )}
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>({caseGleason.images_confirmed}/{caseGleason.images_total} ảnh)</span>
+              </div>
+            )}
+          </div>
+
         </div>
         <div style={{ padding: '16px 22px', display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 18, borderBottom: '1px solid var(--border-subtle)' }}>
           {meta.map(([k, v]) => (

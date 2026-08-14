@@ -1,0 +1,140 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1580 1210" width="1580" height="1210" font-family="Segoe UI, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#42536b"/></marker></defs>
+<rect width="1580" height="1210" fill="#fcfcfb"/>
+<text x="790" y="34" text-anchor="middle" font-size="18" font-weight="700" fill="#0b0b0b">Luồng dữ liệu qua quy trình suy diễn ba giai đoạn</text>
+<text x="790" y="55" text-anchor="middle" font-size="11.5" fill="#898781">Kích thước tensor ghi trên từng bước; mọi hằng số lấy trực tiếp từ mã nguồn</text>
+<rect x="45" y="74" width="1490" height="152" rx="8" fill="#f7f9fc" stroke="#d8e0ea" stroke-dasharray="5 4"/>
+<text x="59" y="94" font-size="12" font-weight="700" fill="#42536b">CHUẨN BỊ ĐẦU VÀO — đưa ảnh về đúng tỉ lệ vật lý lúc huấn luyện</text>
+<rect x="70" y="112" width="240" height="96" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="190.0" y="156.5" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0b0b0b">Ảnh vi trường</text>
+<text x="190.0" y="171.0" text-anchor="middle" font-size="10.3" font-weight="400" fill="#3d4f66">H × W × 3 (BGR)</text>
+<rect x="348" y="112" width="250" height="96" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="473.0" y="149.25" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0b0b0b">Xác định µm/pixel</text>
+<text x="473.0" y="163.75" text-anchor="middle" font-size="10.3" font-weight="400" fill="#3d4f66">thẻ tệp → hiệu chỉnh vật kính</text>
+<text x="473.0" y="178.25" text-anchor="middle" font-size="10.3" font-weight="400" fill="#3d4f66">→ không có thì giữ nguyên</text>
+<rect x="636" y="112" width="250" height="96" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="761.0" y="149.25" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0b0b0b">patch_size_for()</text>
+<text x="761.0" y="163.75" text-anchor="middle" font-size="10.3" font-weight="400" fill="#3d4f66">lưới N px sao cho mỗi mảnh</text>
+<text x="761.0" y="178.25" text-anchor="middle" font-size="10.3" font-weight="400" fill="#3d4f66">phủ đúng 243,1 µm</text>
+<rect x="924" y="112" width="250" height="96" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="1049.0" y="149.25" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0b0b0b">Cắt lưới, biên dịch vào trong</text>
+<text x="1049.0" y="163.75" text-anchor="middle" font-size="10.3" font-weight="400" fill="#3d4f66">mỗi mảnh sở hữu riêng</text>
+<text x="1049.0" y="178.25" text-anchor="middle" font-size="10.3" font-weight="400" fill="#3d4f66">w_valid × h_valid</text>
+<rect x="1212" y="112" width="268" height="96" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="1346.0" y="149.25" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0b0b0b">Lọc mô, chuẩn màu, đệm biên</text>
+<text x="1346.0" y="163.75" text-anchor="middle" font-size="10.3" font-weight="400" fill="#3d4f66">ngưỡng bão hòa ≥ 40 + mở 3×3</text>
+<text x="1346.0" y="178.25" text-anchor="middle" font-size="10.3" font-weight="400" fill="#3d4f66">Macenko chỉ khi ΔLAB &gt; 30</text>
+<polyline points="310,160 348,160" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<polyline points="598,160 636,160" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<polyline points="886,160 924,160" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<polyline points="1174,160 1212,160" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<polyline points="1346,208 1346,232 790,232 790,256" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<rect x="540" y="256" width="500" height="54" rx="6" fill="#fdf3e3" stroke="#b8860b" stroke-width="1.5"/>
+<text x="790.0" y="287.25" text-anchor="middle" font-size="12.5" font-weight="700" fill="#0b0b0b">Mảnh 500 × 500 × 3 — đầu vào chung cho cả ba giai đoạn</text>
+<rect x="45" y="340" width="470" height="700" rx="8" fill="#f7f9fc" stroke="#d8e0ea" stroke-dasharray="5 4"/>
+<text x="59" y="360" font-size="12" font-weight="700" fill="#42536b">GIAI ĐOẠN 1 — PHÂN ĐOẠN 6 LỚP</text>
+<rect x="70" y="382" width="420" height="62" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="280.0" y="409.5" text-anchor="middle" font-size="11" font-weight="700" fill="#0b0b0b">Resize 500 → 256 (song tuyến)</text>
+<text x="280.0" y="423.5" text-anchor="middle" font-size="9.8" font-weight="400" fill="#3d4f66">chuẩn hóa ImageNet</text>
+<rect x="70" y="466" width="420" height="54" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="280.0" y="489.5" text-anchor="middle" font-size="11" font-weight="700" fill="#0b0b0b">U-Net (DenseNet121 / EfficientNet_b0)</text>
+<text x="280.0" y="503.5" text-anchor="middle" font-size="9.8" font-weight="400" fill="#3d4f66">hoặc DeepLabV3+</text>
+<rect x="70" y="542" width="420" height="46" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="280.0" y="568.5" text-anchor="middle" font-size="11" font-weight="700" fill="#0b0b0b">logits 6 × 256 × 256</text>
+<rect x="70" y="610" width="420" height="46" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="280.0" y="636.5" text-anchor="middle" font-size="11" font-weight="700" fill="#0b0b0b">argmax → nhãn 256 × 256</text>
+<rect x="70" y="678" width="420" height="62" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="280.0" y="705.5" text-anchor="middle" font-size="11" font-weight="700" fill="#0b0b0b">Resize 256 → 500</text>
+<text x="280.0" y="719.5" text-anchor="middle" font-size="9.8" font-weight="400" fill="#3d4f66">NGƯỜI GẦN NHẤT — bắt buộc</text>
+<rect x="70" y="762" width="420" height="62" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="280.0" y="789.5" text-anchor="middle" font-size="11" font-weight="700" fill="#0b0b0b">Ghép theo vùng sở hữu</text>
+<text x="280.0" y="803.5" text-anchor="middle" font-size="9.8" font-weight="400" fill="#3d4f66">không chồng lấn, không bỏ sót</text>
+<rect x="70" y="846" width="420" height="62" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="280.0" y="873.5" text-anchor="middle" font-size="11" font-weight="700" fill="#0b0b0b">Mặt nạ H × W, nhãn 0–5</text>
+<text x="280.0" y="887.5" text-anchor="middle" font-size="9.8" font-weight="400" fill="#3d4f66">nền · mô đệm · lành tính · G3 · G4 · G5</text>
+<rect x="70" y="930" width="420" height="62" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="280.0" y="957.5" text-anchor="middle" font-size="11" font-weight="700" fill="#0b0b0b">Đếm diện tích</text>
+<text x="280.0" y="971.5" text-anchor="middle" font-size="9.8" font-weight="400" fill="#3d4f66">ung thư {3,4,5} / mô {2,3,4,5}</text>
+<polyline points="280,444 280,466" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<polyline points="280,520 280,542" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<polyline points="280,588 280,610" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<polyline points="280,656 280,678" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<polyline points="280,740 280,762" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<polyline points="280,824 280,846" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<polyline points="280,908 280,930" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<polyline points="280,992 280,1016" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<rect x="70" y="1016" width="420" height="44" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="280.0" y="1042.0" text-anchor="middle" font-size="12" font-weight="700" fill="#0b0b0b">segmentation_results</text>
+<rect x="540" y="340" width="470" height="700" rx="8" fill="#f7f9fc" stroke="#d8e0ea" stroke-dasharray="5 4"/>
+<text x="554" y="360" font-size="12" font-weight="700" fill="#42536b">GIAI ĐOẠN 2 — PHÂN LOẠI 4 LỚP (qua cổng lọc)</text>
+<path d="M 775 382 L 925 432 L 775 482 L 625 432 z" fill="#fdf3e3" stroke="#b8860b" stroke-width="1.5"/>
+<text x="775" y="424" text-anchor="middle" font-size="11" font-weight="700" fill="#0b0b0b">Mảnh có điểm ảnh</text>
+<text x="775" y="440" text-anchor="middle" font-size="11" font-weight="700" fill="#0b0b0b">thuộc lớp 3 / 4 / 5?</text>
+<polyline points="490,900 516,900 516,432 625,432" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text transform="translate(510,760) rotate(-90)" text-anchor="middle" font-size="10" fill="#898781">dự đoán từng mảnh của GĐ1</text>
+<polyline points="925,432 947,432 947,500 775,500 775,512" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="955" y="470" text-anchor="start" font-size="10" font-family="Segoe UI, Arial, sans-serif" fill="#898781">có</text>
+<text x="600" y="470" text-anchor="start" font-size="10" font-weight="400" fill="#898781">không → bỏ qua mảnh</text>
+<rect x="565" y="512" width="420" height="62" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="775.0" y="539.5" text-anchor="middle" font-size="11" font-weight="700" fill="#0b0b0b">Resize 500 → 224 (song tuyến)</text>
+<text x="775.0" y="553.5" text-anchor="middle" font-size="9.8" font-weight="400" fill="#3d4f66">chuẩn hóa ImageNet</text>
+<rect x="565" y="596" width="420" height="54" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="775.0" y="619.5" text-anchor="middle" font-size="11" font-weight="700" fill="#0b0b0b">DenseNet121 / EfficientNet_b0</text>
+<text x="775.0" y="633.5" text-anchor="middle" font-size="9.8" font-weight="400" fill="#3d4f66">Inception_v3 / ViT-B/16</text>
+<rect x="565" y="672" width="420" height="46" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="775.0" y="698.5" text-anchor="middle" font-size="11" font-weight="700" fill="#0b0b0b">logits 4 → softmax</text>
+<rect x="565" y="740" width="420" height="62" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="775.0" y="767.5" text-anchor="middle" font-size="11" font-weight="700" fill="#0b0b0b">argmax</text>
+<text x="775.0" y="781.5" text-anchor="middle" font-size="9.8" font-weight="400" fill="#3d4f66">lớp 0 = lành tính → bỏ qua mảnh</text>
+<rect x="565" y="824" width="420" height="62" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="775.0" y="851.5" text-anchor="middle" font-size="11" font-weight="700" fill="#0b0b0b">Cộng diện tích theo mẫu</text>
+<text x="775.0" y="865.5" text-anchor="middle" font-size="9.8" font-weight="400" fill="#3d4f66">đếm trong vùng sở hữu của mảnh</text>
+<rect x="565" y="908" width="420" height="62" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="775.0" y="935.5" text-anchor="middle" font-size="11" font-weight="700" fill="#0b0b0b">Xếp hạng theo diện tích</text>
+<text x="775.0" y="949.5" text-anchor="middle" font-size="9.8" font-weight="400" fill="#3d4f66">mẫu trội / mẫu phụ + độ tin cậy</text>
+<polyline points="775,574 775,596" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<polyline points="775,650 775,672" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<polyline points="775,718 775,740" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<polyline points="775,802 775,824" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<polyline points="775,886 775,908" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<polyline points="775,970 775,1016" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<rect x="565" y="1016" width="420" height="44" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="775.0" y="1042.0" text-anchor="middle" font-size="12" font-weight="700" fill="#0b0b0b">classification_results</text>
+<rect x="1035" y="340" width="500" height="700" rx="8" fill="#f7f9fc" stroke="#d8e0ea" stroke-dasharray="5 4"/>
+<text x="1049" y="360" font-size="12" font-weight="700" fill="#42536b">GIAI ĐOẠN 3 — HỢP NHẤT ISUP (nhánh độc lập)</text>
+<polyline points="1040,283 1285,283 1285,382" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="1285" y="305" text-anchor="middle" font-size="10" font-family="Segoe UI, Arial, sans-serif" fill="#898781">toàn bộ mảnh có mô — KHÔNG qua cổng lọc của GĐ2</text>
+<rect x="1060" y="382" width="450" height="62" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="1285.0" y="409.5" text-anchor="middle" font-size="11" font-weight="700" fill="#0b0b0b">Resize 500 → 224</text>
+<text x="1285.0" y="423.5" text-anchor="middle" font-size="9.8" font-weight="400" fill="#3d4f66">chuẩn hóa ImageNet</text>
+<rect x="1060" y="466" width="450" height="62" rx="6" fill="#ffffff" stroke="#2f6f4f" stroke-width="1.5"/>
+<text x="1285.0" y="493.5" text-anchor="middle" font-size="11" font-weight="700" fill="#0b0b0b">Hai mạng cố định</text>
+<text x="1285.0" y="507.5" text-anchor="middle" font-size="9.8" font-weight="400" fill="#3d4f66">densenet121 + efficientnet_b0</text>
+<rect x="1060" y="550" width="450" height="62" rx="6" fill="#ffffff" stroke="#2f6f4f" stroke-width="1.5"/>
+<text x="1285.0" y="577.5" text-anchor="middle" font-size="11" font-weight="700" fill="#0b0b0b">softmax 4 lớp mỗi mạng</text>
+<text x="1285.0" y="591.5" text-anchor="middle" font-size="9.8" font-weight="400" fill="#3d4f66">trung bình trên MỌI mảnh có mô</text>
+<rect x="1060" y="634" width="450" height="62" rx="6" fill="#ffffff" stroke="#2f6f4f" stroke-width="1.5"/>
+<text x="1285.0" y="661.5" text-anchor="middle" font-size="11" font-weight="700" fill="#0b0b0b">Vector 8 đặc trưng</text>
+<text x="1285.0" y="675.5" text-anchor="middle" font-size="9.8" font-weight="400" fill="#3d4f66">2 mạng × 4 lớp, đúng thứ tự metadata</text>
+<rect x="1060" y="718" width="450" height="46" rx="6" fill="#ffffff" stroke="#2f6f4f" stroke-width="1.5"/>
+<text x="1285.0" y="744.5" text-anchor="middle" font-size="11" font-weight="700" fill="#0b0b0b">StandardScaler</text>
+<rect x="1060" y="786" width="450" height="62" rx="6" fill="#ffffff" stroke="#2f6f4f" stroke-width="1.5"/>
+<text x="1285.0" y="813.5" text-anchor="middle" font-size="11" font-weight="700" fill="#0b0b0b">MLPClassifier</text>
+<text x="1285.0" y="827.5" text-anchor="middle" font-size="9.8" font-weight="400" fill="#3d4f66">6 lớp ISUP (0–5)</text>
+<rect x="1060" y="870" width="450" height="62" rx="6" fill="#ffffff" stroke="#2f6f4f" stroke-width="1.5"/>
+<text x="1285.0" y="897.5" text-anchor="middle" font-size="11" font-weight="700" fill="#0b0b0b">Nhóm ISUP + độ tin cậy</text>
+<text x="1285.0" y="911.5" text-anchor="middle" font-size="9.8" font-weight="400" fill="#3d4f66">predict_proba của lớp được chọn</text>
+<polyline points="1285,444 1285,466" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<polyline points="1285,528 1285,550" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<polyline points="1285,612 1285,634" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<polyline points="1285,696 1285,718" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<polyline points="1285,764 1285,786" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<polyline points="1285,848 1285,870" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<polyline points="1285,932 1285,1016" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<rect x="1060" y="1016" width="450" height="44" rx="6" fill="#eef7f0" stroke="#2f6f4f" stroke-width="1.5"/>
+<text x="1285.0" y="1042.0" text-anchor="middle" font-size="12" font-weight="700" fill="#0b0b0b">stage3_results</text>
+<path d="M 45 1084 h 900 v 50 l -12 12 h -888 z" fill="#fffbe9" stroke="#d9c98a"/>
+<text x="57" y="1104" font-size="10.5" fill="#6b5b23">Vì sao giai đoạn 3 chạy phân loại lần thứ hai thay vì dùng lại kết quả của giai đoạn 2: mô hình hợp nhất được huấn luyện trên phân bố lớp</text>
+<text x="57" y="1120" font-size="10.5" fill="#6b5b23">tính trên TOÀN BỘ mảnh có mô. Nếu lấy kết quả đã bị cổng lọc của giai đoạn 2 loại bớt, tỉ lệ lớp lành tính sẽ thấp một cách giả tạo và</text>
+<text x="57" y="1136" font-size="10.5" fill="#6b5b23">vector đặc trưng không còn khớp với dữ liệu huấn luyện.</text>
+</svg>

@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1420 1117" width="1420" height="1117" font-family="Segoe UI, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#42536b"/></marker></defs>
+<rect width="1420" height="1117" fill="#ffffff"/>
+<text x="710" y="32" text-anchor="middle" font-size="17" font-weight="700" fill="#12263f">Biểu đồ tuần tự — Đăng nhập và thiết lập phiên làm việc</text>
+<text x="710" y="52" text-anchor="middle" font-size="11" fill="#6b7c92">Kèm cơ chế khóa sau nhiều lần sai và kiểm tra vai trò có thuộc cổng đang mở hay không</text>
+<rect x="50.0" y="82" width="200" height="34" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="150.0" y="102" text-anchor="middle" font-size="11.5" font-weight="700" fill="#12263f">Người dùng</text>
+<line x1="150.0" y1="116" x2="150.0" y2="1093" stroke="#c6d3e2" stroke-width="1.2" stroke-dasharray="4 4"/>
+<rect x="330.0" y="82" width="200" height="48" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="430.0" y="102" text-anchor="middle" font-size="11.5" font-weight="700" fill="#12263f">Giao diện</text>
+<text x="430.0" y="116" text-anchor="middle" font-size="10" font-weight="400" fill="#3d4f66">Login.tsx</text>
+<line x1="430.0" y1="130" x2="430.0" y2="1093" stroke="#c6d3e2" stroke-width="1.2" stroke-dasharray="4 4"/>
+<rect x="610.0" y="82" width="200" height="48" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="710.0" y="102" text-anchor="middle" font-size="11.5" font-weight="700" fill="#12263f">API</text>
+<text x="710.0" y="116" text-anchor="middle" font-size="10" font-weight="400" fill="#3d4f66">routers/auth.py</text>
+<line x1="710.0" y1="130" x2="710.0" y2="1093" stroke="#c6d3e2" stroke-width="1.2" stroke-dasharray="4 4"/>
+<rect x="890.0" y="82" width="200" height="48" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="990.0" y="102" text-anchor="middle" font-size="11.5" font-weight="700" fill="#12263f">Bộ đếm lần sai</text>
+<text x="990.0" y="116" text-anchor="middle" font-size="10" font-weight="400" fill="#3d4f66">trong bộ nhớ tiến trình</text>
+<line x1="990.0" y1="130" x2="990.0" y2="1093" stroke="#c6d3e2" stroke-width="1.2" stroke-dasharray="4 4"/>
+<rect x="1170.0" y="82" width="200" height="34" rx="6" fill="#e8eef7" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="1270.0" y="102" text-anchor="middle" font-size="11.5" font-weight="700" fill="#12263f">CSDL SQLite</text>
+<line x1="1270.0" y1="116" x2="1270.0" y2="1093" stroke="#c6d3e2" stroke-width="1.2" stroke-dasharray="4 4"/>
+<line x1="150.0" y1="156" x2="430.0" y2="156" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="290.0" y="149" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">nhập tên đăng nhập và mật khẩu</text>
+<line x1="430.0" y1="196" x2="710.0" y2="196" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="570.0" y="189" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">POST /api/auth/login  { username, password }</text>
+<line x1="710.0" y1="236" x2="990.0" y2="236" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="850.0" y="229" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">kiểm tra khóa theo tên đăng nhập</text>
+<text x="850.0" y="249" text-anchor="middle" font-size="9.5" font-weight="400" fill="#6b7c92" font-style="italic">5 lần sai trong 15 phút</text>
+<line x1="990.0" y1="288" x2="710.0" y2="288" stroke="#42536b" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#a)"/>
+<text x="850.0" y="281" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">còn hạn / đã bị khóa</text>
+<rect x="650.0" y="314" width="520.0" height="46" rx="4" fill="#fff5f5" stroke="#d98a8a"/>
+<text x="662.0" y="329" text-anchor="start" font-size="10" font-weight="700" fill="#a34a4a">alt  [đã bị khóa]</text>
+<text x="662.0" y="344" text-anchor="start" font-size="10" font-weight="400" fill="#a34a4a">429 Too Many Requests — dừng tại đây, không truy vấn cơ sở dữ liệu</text>
+<line x1="710.0" y1="388" x2="1270.0" y2="388" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="990.0" y="381" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">SELECT users WHERE username = ?</text>
+<line x1="1270.0" y1="428" x2="710.0" y2="428" stroke="#42536b" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#a)"/>
+<text x="990.0" y="421" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">bản ghi người dùng hoặc rỗng</text>
+<polyline points="710.0,468 756.0,468 756.0,494 714.0,494" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="766.0" y="485.0" text-anchor="start" font-size="10.5" font-weight="400" fill="#3d4f66">verify_password — so khớp bcrypt</text>
+<rect x="650.0" y="508" width="520.0" height="76" rx="4" fill="#fff5f5" stroke="#d98a8a"/>
+<text x="662.0" y="523" text-anchor="start" font-size="10" font-weight="700" fill="#a34a4a">alt  [sai mật khẩu hoặc không có tài khoản]</text>
+<text x="662.0" y="538" text-anchor="start" font-size="10" font-weight="400" fill="#a34a4a">ghi nhận một lần sai vào bộ đếm → 401 Unauthorized</text>
+<text x="662.0" y="553" text-anchor="start" font-size="10" font-weight="400" fill="#a34a4a">alt  [tài khoản bị khóa: is_active = 0]</text>
+<text x="662.0" y="568" text-anchor="start" font-size="10" font-weight="400" fill="#a34a4a">401 Unauthorized — không cấp token dù mật khẩu đúng</text>
+<line x1="710.0" y1="612" x2="990.0" y2="612" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="850.0" y="605" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">xóa lịch sử sai của tài khoản này</text>
+<polyline points="710.0,652 756.0,652 756.0,678 714.0,678" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="766.0" y="669.0" text-anchor="start" font-size="10.5" font-weight="400" fill="#3d4f66">create_access_token — JWT HS256</text>
+<text x="766.0" y="684.0" text-anchor="start" font-size="9.5" font-weight="400" fill="#6b7c92" font-style="italic">mang id, username, role</text>
+<line x1="710.0" y1="720" x2="430.0" y2="720" stroke="#42536b" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#a)"/>
+<text x="570.0" y="713" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">200  { access_token }</text>
+<polyline points="430.0,760 476.0,760 476.0,786 434.0,786" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="486.0" y="777.0" text-anchor="start" font-size="10.5" font-weight="400" fill="#3d4f66">lưu token vào localStorage</text>
+<text x="486.0" y="792.0" text-anchor="start" font-size="9.5" font-weight="400" fill="#6b7c92" font-style="italic">khóa riêng theo cổng: prostaai_token_doctor / _admin</text>
+<line x1="430.0" y1="828" x2="710.0" y2="828" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="570.0" y="821" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">GET /api/auth/me</text>
+<line x1="710.0" y1="868" x2="430.0" y2="868" stroke="#42536b" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#a)"/>
+<text x="570.0" y="861" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">200  { id, username, role, is_active }</text>
+<polyline points="430.0,908 476.0,908 476.0,934 434.0,934" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="486.0" y="925.0" text-anchor="start" font-size="10.5" font-weight="400" fill="#3d4f66">roleMatchesPortal(role)</text>
+<rect x="370.0" y="948" width="520.0" height="61" rx="4" fill="#fff5f5" stroke="#d98a8a"/>
+<text x="382.0" y="963" text-anchor="start" font-size="10" font-weight="700" fill="#a34a4a">alt  [vai trò không thuộc cổng đang mở]</text>
+<text x="382.0" y="978" text-anchor="start" font-size="10" font-weight="400" fill="#a34a4a">xóa token vừa lưu, hiện thông báo kèm liên kết sang cổng còn lại —</text>
+<text x="382.0" y="993" text-anchor="start" font-size="10" font-weight="400" fill="#a34a4a">không nạp giao diện sai vai trò rồi để mọi lời gọi API trả 403</text>
+<line x1="430.0" y1="1037" x2="150.0" y2="1037" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="290.0" y="1030" text-anchor="middle" font-size="10.5" font-weight="400" fill="#3d4f66">vào màn Tổng quan đúng vai trò</text>
+</svg>

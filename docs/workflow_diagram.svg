@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1380 1200" width="1380" height="1200" font-family="Segoe UI, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#42536b"/></marker><marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10" fill="none" stroke="#42536b" stroke-width="1.4"/></marker></defs>
+<rect width="1380" height="1200" fill="#ffffff"/>
+<text x="690" y="32" text-anchor="middle" font-size="18" font-weight="700" fill="#12263f">Sơ đồ luồng nghiệp vụ — từ tạo ca bệnh đến phiếu kết quả</text>
+<rect x="50" y="70" width="400" height="1080" fill="#fbfcfe" stroke="#d8e0ea"/>
+<rect x="50" y="70" width="400" height="30" fill="#e8eef7" stroke="#d8e0ea"/>
+<text x="250.0" y="90" text-anchor="middle" font-size="12" font-weight="700" fill="#42536b">BÁC SĨ</text>
+<rect x="470" y="70" width="420" height="1080" fill="#fbfcfe" stroke="#d8e0ea"/>
+<rect x="470" y="70" width="420" height="30" fill="#e8eef7" stroke="#d8e0ea"/>
+<text x="680.0" y="90" text-anchor="middle" font-size="12" font-weight="700" fill="#42536b">HỆ THỐNG (FastAPI)</text>
+<rect x="910" y="70" width="420" height="1080" fill="#fbfcfe" stroke="#d8e0ea"/>
+<rect x="910" y="70" width="420" height="30" fill="#e8eef7" stroke="#d8e0ea"/>
+<text x="1120.0" y="90" text-anchor="middle" font-size="12" font-weight="700" fill="#42536b">QUY TRÌNH AI (tác vụ nền)</text>
+<circle cx="250" cy="130" r="12" fill="#1e3a5f"/>
+<polyline points="250,142 250,168" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<rect x="100" y="168" width="300" height="46" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="250.0" y="195.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Tạo ca bệnh (mã số, mã năm, bệnh nhân)</text>
+<polyline points="250,214 250,240" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<rect x="100" y="240" width="300" height="46" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="250.0" y="267.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Thêm slide vào ca</text>
+<polyline points="250,286 250,312" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<rect x="100" y="312" width="300" height="54" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="250.0" y="335.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Tải ảnh lên hoặc chụp trực tiếp</text>
+<text x="250.0" y="351.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">qua camera kính hiển vi</text>
+<polyline points="400,339 530,339" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<rect x="530" y="312" width="300" height="54" rx="6" fill="#eef7f0" stroke="#2f6f4f" stroke-width="1.5"/>
+<text x="680.0" y="335.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Tiền xử lý tự động</text>
+<text x="680.0" y="351.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">kiểm tra mờ · tách mô · chuẩn màu</text>
+<polyline points="530,339 500,339 500,415 400,415" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<rect x="100" y="392" width="300" height="46" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="250.0" y="419.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Chọn kiến trúc mô hình</text>
+<polyline points="250,438 250,464" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<rect x="100" y="464" width="300" height="46" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="250.0" y="491.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Bấm "Bắt đầu phân tích"</text>
+<polyline points="400,487 530,487" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<rect x="530" y="464" width="300" height="46" rx="6" fill="#eef7f0" stroke="#2f6f4f" stroke-width="1.5"/>
+<text x="680.0" y="491.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Tạo lần chạy · trạng thái chờ</text>
+<path d="M 1120 540 L 1230 585 L 1120 630 L 1010 585 z" fill="#fdf3e3" stroke="#b8860b" stroke-width="1.5"/>
+<text x="1120" y="580" text-anchor="middle" font-size="11" font-weight="700" fill="#12263f">Có chỗ chạy?</text>
+<text x="1120" y="596" text-anchor="middle" font-size="10" font-weight="400" fill="#8a7a3f">(tối đa 1 lần/lúc)</text>
+<polyline points="830,487 1120,487 1120,540" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<polyline points="1120,630 970,630 970,566 1010,566" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="965" y="652" text-anchor="end" font-size="10.5" fill="#5a6b82">không → giữ trạng thái chờ</text>
+<polyline points="1230,585 1270,585 1270,640 1120,640 1120,660" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="1278" y="580" text-anchor="start" font-size="10.5" fill="#5a6b82">có</text>
+<rect x="960" y="660" width="320" height="54" rx="6" fill="#fdf3e3" stroke="#b8860b" stroke-width="1.5"/>
+<text x="1120.0" y="683.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Xác định µm/pixel và cắt mảnh</text>
+<text x="1120.0" y="699.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">theo đúng tỉ lệ vật lý huấn luyện</text>
+<polyline points="1120,714 1120,740" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<rect x="960" y="740" width="320" height="46" rx="6" fill="#fdf3e3" stroke="#b8860b" stroke-width="1.5"/>
+<text x="1120.0" y="767.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Giai đoạn 1 — phân đoạn mô 6 lớp</text>
+<polyline points="1120,786 1120,812" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<rect x="960" y="812" width="320" height="54" rx="6" fill="#fdf3e3" stroke="#b8860b" stroke-width="1.5"/>
+<text x="1120.0" y="835.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Giai đoạn 2 — phân loại 4 lớp</text>
+<text x="1120.0" y="851.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">trên mảnh có điểm ảnh ung thư</text>
+<polyline points="1120,866 1120,892" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<rect x="960" y="892" width="320" height="46" rx="6" fill="#fdf3e3" stroke="#b8860b" stroke-width="1.5"/>
+<text x="1120.0" y="919.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Giai đoạn 3 — hợp nhất ISUP</text>
+<polyline points="1120,938 1120,964" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<path d="M 1120 964 L 1220 1006 L 1120 1048 L 1020 1006 z" fill="#fdf3e3" stroke="#b8860b" stroke-width="1.5"/>
+<text x="1120" y="1010" text-anchor="middle" font-size="11" font-weight="700" fill="#12263f">Thành công?</text>
+<polyline points="1020,1006 830,1006" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="840" y="996" text-anchor="start" font-size="10.5" fill="#5a6b82">không → ghi lỗi, cho thử lại</text>
+<polyline points="1120,1048 1120,1075 830,1075" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="1134" y="1066" text-anchor="start" font-size="10.5" fill="#5a6b82">có</text>
+<rect x="530" y="1052" width="300" height="46" rx="6" fill="#eef7f0" stroke="#2f6f4f" stroke-width="1.5"/>
+<text x="680.0" y="1079.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Lưu kết quả · ghi nhật ký</text>
+<polyline points="530,1075 430,1075 430,579 400,579" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<rect x="100" y="552" width="300" height="54" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="250.0" y="575.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Xem mặt nạ AI, đối chiếu tiêu bản,</text>
+<text x="250.0" y="591.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">đo khoảng cách, khoanh vùng</text>
+<rect x="100" y="620" width="300" height="66" rx="6" fill="#fff5f5" stroke="#d98a8a" stroke-width="1.5"/>
+<text x="250.0" y="641.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Hệ thống cảnh báo nếu kết quả</text>
+<text x="250.0" y="657.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">không đáng tin (không rõ mô, hai</text>
+<text x="250.0" y="673.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">mô hình mâu thuẫn)</text>
+<polyline points="250,606 250,620" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<polyline points="250,686 250,712" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<rect x="100" y="712" width="300" height="54" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="250.0" y="735.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Nhập kết luận của bác sĩ</text>
+<text x="250.0" y="751.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">mẫu Gleason · PNI · LVI · ghi chú</text>
+<polyline points="250,766 250,792" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<rect x="100" y="792" width="300" height="40" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="250.0" y="816.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Lưu bản nháp</text>
+<polyline points="250,832 250,856" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<path d="M 250 856 L 360 898 L 250 940 L 140 898 z" fill="#fdf3e3" stroke="#b8860b" stroke-width="1.5"/>
+<text x="250" y="894" text-anchor="middle" font-size="11" font-weight="700" fill="#12263f">Đã đủ căn cứ</text>
+<text x="250" y="910" text-anchor="middle" font-size="11" font-weight="700" fill="#12263f">để ký?</text>
+<polyline points="140,898 85,898 85,745 100,745" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="92" y="878" text-anchor="start" font-size="10.5" fill="#5a6b82">chưa → sửa tiếp</text>
+<polyline points="250,940 250,968" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="264" y="960" text-anchor="start" font-size="10.5" fill="#5a6b82">rồi</text>
+<rect x="100" y="968" width="300" height="46" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="250.0" y="995.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Xác nhận &amp; khóa đánh giá</text>
+<polyline points="250,1014 250,1040" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<rect x="100" y="1040" width="300" height="54" rx="6" fill="#ffffff" stroke="#2c4a6e" stroke-width="1.5"/>
+<text x="250.0" y="1063.0" text-anchor="middle" font-size="12" font-weight="700" fill="#12263f">Tổng hợp Gleason cấp ca bệnh</text>
+<text x="250.0" y="1079.0" text-anchor="middle" font-size="11" font-weight="400" fill="#3d4f66">và in phiếu kết quả</text>
+<polyline points="250,1094 250,1118" fill="none" stroke="#42536b" stroke-width="1.4" marker-end="url(#a)"/>
+<circle cx="250" cy="1130" r="12" fill="none" stroke="#1e3a5f" stroke-width="2"/>
+<circle cx="250" cy="1130" r="7" fill="#1e3a5f"/>
+</svg>

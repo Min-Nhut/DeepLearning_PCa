@@ -15,6 +15,7 @@ import { Icon } from '../lib/icon';
 import * as api from '../lib/api';
 import { useApiData } from '../lib/useApiData';
 import { createDeepZoomViewer, fullImageRect, openDeepZoom } from '../lib/dzi';
+import { aiReadingProblem, classLabel, crossModelDisagreement } from '../lib/aiReliability';
 import type { ApiImage, Calibration, DiagnosticReviewUpdate, Point } from '../types';
 
 type Pattern = 3 | 4 | 5 | null;
@@ -231,7 +232,10 @@ export function Viewer({ token, imageId, caseLabel, onBack, onGoReport, onRunAI,
       setFreeNotes(review.free_notes || '');
       setNeedsSecondOpinion(review.needs_second_opinion);
       setSecondOpinionNotes(review.second_opinion_notes || '');
-    } else if (run?.classification) {
+    } else if (run?.classification && aiReadingProblem(run) == null) {
+      // Only prefill from a result the AI actually produced. When it assigned no
+      // pattern, a null prefill would pre-select "Lành tính" for the doctor —
+      // the same false negative as the chip, arrived at through the form.
       setPrimary(run.classification.primary_pattern);
       setSecondary(run.classification.secondary_pattern);
     }
@@ -291,10 +295,10 @@ export function Viewer({ token, imageId, caseLabel, onBack, onGoReport, onRunAI,
   const clf = run?.classification;
   const total = (primary || 0) + (secondary || 0);
   const agreesWithAi = clf != null && primary === clf.primary_pattern && secondary === clf.secondary_pattern;
-  // A null primary_pattern is genuinely ambiguous: it means either "real benign tissue,
-  // no cancer found" or "AI never found any usable tissue at all" (blurry image, mostly
-  // background). total_tissue_area_px distinguishes them without conflating the two.
-  const noTissueDetected = run?.status === 'completed' && !!seg && !seg.total_tissue_area_px;
+  // A null primary_pattern has three possible meanings and they must not be
+  // conflated — see lib/aiReliability.ts for the real case that forced this.
+  const readingProblem = aiReadingProblem(run);
+  const modelDisagreement = crossModelDisagreement(run?.stage3?.classification_pct);
 
   function handleAgreeWithAi() {
     if (!clf) return;
@@ -478,12 +482,31 @@ export function Viewer({ token, imageId, caseLabel, onBack, onGoReport, onRunAI,
         ) : (
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-strong)', marginBottom: 10 }}>Kết quả AI (chỉ đọc)</div>
-            {noTissueDetected ? (
+            {readingProblem === 'no_tissue' ? (
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: 12, background: 'var(--warning-soft)', borderRadius: 'var(--radius-md)', fontSize: 12, color: 'var(--warning)' }}>
                 <Icon name="triangle-alert" size={15} style={{ flexShrink: 0, marginTop: 1 }} />
                 <span>
                   AI không phát hiện được mô nào trong ảnh này (có thể do ảnh mờ hoặc không đủ mô) — <strong>không phải</strong> kết luận lành tính. Cân nhắc chụp/tải lại ảnh rõ hơn.
                 </span>
+              </div>
+            ) : readingProblem === 'pattern_not_assigned' ? (
+              // Segmentation marked cancerous tissue while classification assigned no
+              // pattern. Rendering that as a benign chip would state a negative finding
+              // neither model made — and would sit directly beside a non-zero cancer area.
+              <div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: 12, background: 'var(--warning-soft)', borderRadius: 'var(--radius-md)', fontSize: 12, color: 'var(--warning)' }}>
+                  <Icon name="triangle-alert" size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+                  <span>
+                    AI <strong>không gán được mẫu Gleason</strong> cho ảnh này: mô hình phân đoạn đánh
+                    dấu có vùng nghi ngờ ung thư, nhưng mô hình phân loại không xác định được mẫu nào.
+                    Hai mô hình mâu thuẫn nhau — <strong>không phải</strong> kết luận lành tính. Bác sĩ
+                    cần tự đọc mask và quyết định.
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginTop: 10 }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Vùng nghi ngờ / tổng mô tuyến</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-strong)' }}>{seg?.cancer_area_percentage != null ? `${seg.cancer_area_percentage.toFixed(1)}%` : '—'}</span>
+                </div>
               </div>
             ) : (
               <>
@@ -504,15 +527,36 @@ export function Viewer({ token, imageId, caseLabel, onBack, onGoReport, onRunAI,
                 </div>
               </>
             )}
+            {modelDisagreement && (
+              // Free signal: Stage 3 already runs both classification networks over every
+              // tissue patch and stores their distributions, so a top-1 split between them
+              // is available on every run without any extra compute.
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: 12, marginTop: 12, background: 'var(--warning-soft)', borderRadius: 'var(--radius-md)', fontSize: 12, color: 'var(--warning)' }}>
+                <Icon name="triangle-alert" size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+                <div>
+                  <div style={{ marginBottom: 6 }}>
+                    Hai mô hình phân loại <strong>không đồng thuận</strong> trên ảnh này, dấu hiệu ảnh
+                    nằm ngoài phân phối dữ liệu huấn luyện. Hãy đọc kết quả một cách thận trọng.
+                  </div>
+                  {modelDisagreement.map((v) => (
+                    <div key={v.arch} style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+                      {v.arch}: {classLabel(v.label)} ({v.percentage.toFixed(1)}%)
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {clf && (
               <Button
                 variant={agreesWithAi ? 'ghost' : 'secondary'} size="sm" fullWidth
-                iconLeft={<Icon name={agreesWithAi ? 'check' : 'thumbs-up'} />}
-                disabled={locked}
+                iconLeft={<Icon name={readingProblem != null ? 'triangle-alert' : agreesWithAi ? 'check' : 'thumbs-up'} />}
+                // Agreeing with a result the AI never produced would write "benign" into the
+                // review through a different door than the chip this pass just fixed.
+                disabled={locked || readingProblem != null}
                 onClick={handleAgreeWithAi}
                 style={{ marginTop: 12 }}
               >
-                {agreesWithAi ? 'Đã khớp với AI' : 'Đồng ý với AI'}
+                {readingProblem != null ? 'AI chưa có kết quả để đồng ý' : agreesWithAi ? 'Đã khớp với AI' : 'Đồng ý với AI'}
               </Button>
             )}
             {run.stage3?.isup_grade != null && (
@@ -540,7 +584,13 @@ export function Viewer({ token, imageId, caseLabel, onBack, onGoReport, onRunAI,
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div>
               <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 2 }}>Điểm Gleason</div>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 22, color: 'var(--brand)' }}>{primary ? `${primary}+${secondary || 0}=${total}` : 'Lành tính'}</span>
+              {/* A null primary is "chưa chọn" until the doctor has actually saved
+                  something — reading it as "Lành tính" on a form nobody has touched
+                  states a negative finding on their behalf. Once a review exists, a
+                  null really is their recorded benign call. */}
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 22, color: primary || review ? 'var(--brand)' : 'var(--text-muted)' }}>
+                {primary ? `${primary}+${secondary || 0}=${total}` : review ? 'Lành tính' : 'Chưa chọn'}
+              </span>
             </div>
             <PatternPicker label="Primary" value={primary} onChange={setPrimary} disabled={locked} />
             <PatternPicker label="Secondary" value={secondary} onChange={setSecondary} disabled={locked} />

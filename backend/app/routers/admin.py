@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from ..ai_models_config import list_model_infos
 from ..audit import write_audit_log
+from ..inference import registry as model_registry
 from ..database import get_db
 from ..deps import require_admin
 from ..models import AuditLog, Case, DiagnosticReview, Image, InferenceRun, Slide, User
@@ -173,7 +174,11 @@ def list_logs(
     rows = (
         db.query(AuditLog, User.username)
         .outerjoin(User, User.id == AuditLog.user_id)
-        .order_by(AuditLog.created_at.desc())
+        # `created_at` is second-granular, so several actions routinely share a
+        # timestamp and SQLite is then free to return them in any order — the
+        # log read out of sequence, and a paged read could repeat or skip a row
+        # because the sort was not total. `id` breaks the tie in insertion order.
+        .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
         .offset(offset)
         .limit(limit)
         .all()
@@ -191,6 +196,39 @@ def list_logs(
 @router.get("/models", response_model=list[ModelInfo])
 def list_models() -> list[ModelInfo]:
     return list_model_infos()
+
+
+@router.post("/models/{task_type}/{arch_key}/reload", response_model=ModelInfo)
+def reload_model(
+    task_type: str,
+    arch_key: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_admin),
+) -> ModelInfo:
+    """Drop this architecture's loaded weights so the next run re-reads the
+    checkpoint from disk.
+
+    `list_model_infos()` reads the filesystem on every call, so replacing a
+    `.pt` file updates the "Sẵn sàng" badge straight away — but the weights the
+    running process already loaded stay in `registry._cache` until it restarts.
+    Retraining a model and dropping the new file in therefore looked like it had
+    taken effect while inference quietly kept using the old one. This is the fix,
+    and it is the whole job of the "Tải lại checkpoint" button.
+    """
+    model = next(
+        (m for m in list_model_infos() if m.task_type == task_type and m.arch_key == arch_key),
+        None,
+    )
+    if model is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy mô hình")
+
+    was_loaded = model_registry.evict(task_type, arch_key)  # type: ignore[arg-type]
+    write_audit_log(
+        db, user, "reload_model", "model", None,
+        details=f"{task_type}/{arch_key}" + ("" if was_loaded else " (chưa nạp trong bộ nhớ)"),
+    )
+    db.commit()
+    return model
 
 
 # --------------------------------------------------------------- library ----

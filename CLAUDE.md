@@ -341,10 +341,11 @@ frontend/src/
   lib/dzi.ts                Deep-zoom (Google Maps-style) OpenSeadragon viewer helper,
                              shared by Viewer.tsx/Annotate.tsx (added 2026-08-06, see
                              Frontend↔backend integration)
-  lib/caseAdapter.ts        caseFromApi(): ApiCase -> the existing mock-shaped `Case` type,
-                            so Cases/CaseDetail/CaseRow/DoctorDashboard etc. render real
-                            data unchanged; AI-derived fields (gleason/primary/...) stay
-                            null/placeholder since there's no AI pipeline yet
+  lib/caseAdapter.ts        caseFromApi(): ApiCase -> the `Case` type Cases/CaseDetail/
+                            CaseRow/DoctorDashboard render. Every field is passed through
+                            from the backend, including status/gleason/confidence — those
+                            were hard-coded here until 2026-08-08, see Frontend↔backend
+                            integration
   components/ui/           Button, IconButton, Input, Select, Badge, Tag, Card, StatCard, Checkbox,
                            Switch, StateMessage (loading/error placeholder)
   components/pathology/    GleasonChip, ConfidenceMeter, CaseRow, AIOverlayToggle
@@ -878,11 +879,18 @@ python scripts/create_user.py --username you@example.com --password ... --role a
 uvicorn app.main:app --reload --port 8000
 ```
 
-Bootstrap accounts that already exist in `database/prostaai.db` (password shown so you
-can actually log in — change/remove before this ever leaves a local machine):
-`admin@prostaai.vn` / `admin123` (admin), `lam.nguyen@benhvien.vn` / `doctor123` (user),
-`ha.tran@benhvien.vn` / `pass123` (user), `son.pham@benhvien.vn` / `pass123` (user,
-created through the Users admin screen during integration testing).
+Bootstrap accounts in `database/prostaai.db`: `admin@prostaai.vn` (admin) plus
+`lam.nguyen@benhvien.vn`, `ha.tran@benhvien.vn`, `son.pham@benhvien.vn`,
+`nhut.minh@benhvien.vn` (all `user`).
+
+**Passwords are no longer written here.** They used to be (`admin123`, `doctor123`,
+`pass123` — short, guessable, and one of them below the 8-character minimum this app now
+enforces on new accounts), which is fine on one laptop and not fine anywhere else. All five
+were rotated to 16-character random passwords on 2026-08-07 via
+`python scripts/reset_passwords.py`, which writes them to
+`backend/credentials.local.txt` — gitignored, so they stay retrievable on this machine
+without following the repo. Rotate again (all accounts, or one with `--username`) any time;
+`scripts/create_user.py` still handles creating a brand-new account.
 
 All endpoints verified end-to-end with `curl` first, then again through the real frontend
 UI (see below). **Gotcha found during that testing**: native Windows `curl.exe` (the
@@ -2424,6 +2432,440 @@ no public image URLs.
 `registry.load()`, and the real Stage 3 joblib artifact still taking exactly 8 features)
 were run once and pass; they stay out of the default run so the suite never depends on
 files that are gitignored.
+
+### Case workflow status made real, and a timezone bug it uncovered (2026-08-08)
+
+**The case list's status badge never changed.** `CaseRow` has always supported four states
+(`new` / `processing` / `review` / `reviewed`), but `caseAdapter.ts` hard-coded
+`status: 'new'` for every case — left at its default when the screens moved off mock data —
+so three of the four were unreachable and a case still read "Mới" long after it had been
+analysed and signed off. The frontend could not have derived it either: `CaseOut` carries
+slides and images but no runs or reviews.
+
+Now computed server-side in `_attach_derived()` (`routers/cases.py` — named
+`_attach_statuses` when built, renamed the next day once it also carried the case's Gleason
+and confidence, see the subsection below), used by both
+`GET /api/cases` and `GET /api/cases/{id}`: a run `pending`/`running` → `processing`; every
+image confirmed → `reviewed`; a completed run or any started review → `review`; otherwise
+`new`. A run that only ever **failed** deliberately stays `new` — "Chờ duyệt" would promise
+a result that does not exist. Three grouped queries regardless of list length, not a pair
+per case (the N+1 shape already fixed once in `admin.list_users`); a test asserts the query
+count does not grow with the number of cases.
+
+**A real bug surfaced while running those tests at 00:38 local time**: `GET
+/api/stats/doctor` compared `created_at` — written by SQLite's `datetime('now')`, i.e.
+**UTC** — against Python's `date.today()`, i.e. **local**. In Vietnam (UTC+7) the two
+disagree from 00:00 to 07:00, so the dashboard's "Ca mới hôm nay" tile silently read **0 for
+the first seven hours of every morning**. Invisible to anyone testing during the day; the
+suite only caught it because it happened to run just after midnight. Both bounds now come
+from one clock via `_local_day_start_utc()`, which converts the doctor's own local midnight
+into the UTC the database actually stores. Two regression tests pin it from both directions
+(a case created now must be inside the window; an old case must not be).
+
+14 tests for the status, 2 more for the timezone. Backend suite: **249 passing**.
+
+### Hardcoded-value audit → the Gleason and confidence columns made real (2026-08-08)
+
+Follow-up to the status fix above: the user asked for a sweep of hard-coded values
+("rà soát các phần bị rán cứng"). The sweep separated three kinds, and only the first is a
+defect — worth keeping straight, since most of the constants in this codebase are measured
+and deliberately fixed:
+
+1. **Hard-coded and wrong** — `caseAdapter.ts` still pinned `gleason`, `primary`,
+   `secondary`, `confidence` to `null` and `tumorArea`/`regionsCount` to placeholders, the
+   exact same bug class as `status`. **Fixed, see below.**
+2. **Dead controls** — four buttons with no `onClick` at all, left over from the mockup:
+   "Xuất báo cáo hệ thống", "Tải lại checkpoint", and the topbar "Trợ giúp" / "Thông báo"
+   icons. Also `Cases.tsx`'s two decorative filter `Tag`s ("Gleason ≥ 7", "Tuần này") whose
+   `onRemove` was `() => {}`. **All resolved the same day** — see the dead-controls
+   subsection below.
+3. **Hard-coded and correct, leave alone** — `PATCH_SIZE = 500`, `SEG_INPUT_SIZE = 256`,
+   `CLF_INPUT_SIZE = 224`, `SEG_NUM_CLASSES = 6` (must match training or results are
+   meaningless), `TRAINING_UM_PER_PIXEL = 0.48619`, `MIN_SATURATION = 40`,
+   `_OUT_OF_DOMAIN_LAB_DISTANCE = 30`, `_RESCALE_TOLERANCE = 0.02` (all measured, with the
+   measurement recorded in this file), `MAX_SLIDES_PER_CASE = 12` /
+   `MAX_IMAGES_PER_SLIDE = 8` (PRD §8.3/§8.4). One outlier worth naming for the thesis:
+   `BLUR_VARIANCE_THRESHOLD = 100.0` is the only one with no measurement behind it — its
+   own comment already says "tunable heuristic, not a calibrated clinical value", and it
+   decides whether an image gets flagged as blurry.
+
+**The fix.** `_attach_statuses()` became `_attach_derived()` and now also fills
+`primary_pattern` / `secondary_pattern` / `total_score` / `images_confirmed` /
+`ai_confidence` on `CaseOut`. Same reason as `status`: none of it is a stored column and
+none of it is derivable client-side. Query count stayed constant — the reviews are now
+fetched once as rows instead of twice as counts, serving both the badge and the score, so
+only the confidence lookup is new (four grouped queries total; the existing "query count
+must not grow with case count" test still passes).
+
+- **The aggregation rule moved into a pure `_aggregate_gleason()`** shared by the list and
+  `GET /{id}/gleason`. They had to agree — a row disagreeing with the case's own detail
+  screen is worse than showing nothing — and a shared function is the only way they cannot
+  drift. A test asserts the two endpoints return identical values.
+- **Two real defects fixed while extracting it.** Ties were resolved by dict order, so two
+  equal-area foci of pattern 3 and pattern 5 silently graded the case as **3**; ties now
+  break towards the higher grade. And when a pattern appeared only as some image's
+  *secondary*, `max()` over an all-zero weight dict returned **3** regardless of what was
+  actually there; primary is now chosen among patterns that genuinely appeared as a
+  primary.
+- **Confidence is the AI's, averaged over the latest completed run per image** — a
+  re-analysed image must count once, and a superseded run's number is not what the doctor
+  is looking at. Converted to 0-100 server-side, since serving the raw 0-1 fraction is
+  exactly the bug already fixed once in `Viewer`/`Report` (a real 68% rendered as "1%").
+  The dashboard column header is now **"Tin cậy AI"**, not "Tin cậy": the Gleason beside it
+  comes from the doctor's confirmed reviews, and an unlabelled percentage next to it would
+  read as the doctor's own certainty.
+- **A confirmed-benign case shows the benign chip, not "—"**, via `images_confirmed`. Both
+  leave the score null, but one is a finding and the other is nobody having looked yet.
+- **Score shown as a real pattern pair** (`4+3=7`, mono, next to the chip) rather than just
+  a chip — a case-level Gleason is a pair, and the chip alone would drop the secondary.
+- `Case.tumorArea` / `Case.regionsCount` were **deleted** rather than wired: nothing has
+  ever rendered them, and there is no case-level source for either.
+
+**Verified on the real running system, not just the suite**: the untouched real case
+`0001` returned `ai_confidence: 91.74283372661102`, matched to float precision against a
+direct `sqlite3` query of its latest completed run. A disposable case was then created with
+a confirmed 4+3 review and **no** AI run, so the two rows exercised opposite halves at once
+— in the real browser the test row rendered "4 · 4+3=7 / — / Đã duyệt" and case `0001`
+rendered "— / 92% / Chờ duyệt", where before the fix both rows read "— / — / Mới". The
+Pattern-4 chip's computed background was `rgb(255,127,14)`, the exact mask-palette colour,
+and the score rendered in IBM Plex Mono per the design system's rule for numbers. Test
+slide/image/case deleted afterwards; `PRAGMA foreign_key_check` clean, only case `0001`
+remains with its 4 images, `diagnostic_reviews` empty again, no leftover upload directory.
+
+12 new backend tests (`tests/test_case_summary.py`) and 5 new frontend ones. Backend:
+**261 passing**; frontend: **33 passing**.
+
+### Dead controls resolved — two wired, three removed (2026-08-08)
+
+Item 2 of the audit above. Each button was checked for whether anything real could back it
+before deciding, rather than reflexively deleting or reflexively building.
+
+**Wired, because there was a real need behind the label:**
+
+- **"Tải lại checkpoint"** (`Models.tsx`) named a genuine trap. `registry._cache` holds
+  loaded weights for the life of the process, while `list_model_infos()` reads the
+  filesystem on every call — so dropping a retrained `.pt` into `backend/models/` flips the
+  "Sẵn sàng" badge immediately while inference **quietly keeps running the old weights**
+  until someone restarts uvicorn. New `registry.evict(task, arch)` +
+  `POST /api/admin/models/{task_type}/{arch_key}/reload` (admin-only, audit-logged). Scoped
+  to one architecture, not a cache flush: each card reloads its own model, so reloading one
+  does not force every other architecture to re-read from disk.
+- **`Cases.tsx`'s two filter chips** ("Gleason ≥ 7", "Tuần này") could not have worked
+  before this same day — the case carried no Gleason data at all until the fix above. Now
+  both filter for real, client-side, over data already loaded. They also **defaulted to
+  looking active** (solid `Tag` with a clear-×) while filtering nothing, which is a claim
+  about state that was simply false; they are now off by default and only take the active
+  look once switched on. The logic lives in `lib/caseFilters.ts` so it can be tested as
+  plain functions: `startOfWeek()` is Monday-based (a Sunday belongs to the week that began
+  six days earlier — the off-by-one a naive `getDay()` gets wrong), and
+  `hasHighGradeScore()` deliberately **excludes** an unscored case rather than treating it
+  as "< 7" — nobody has determined its grade, and the UI says so next to the chip.
+
+**Removed, because nothing real could back them**: "Xuất báo cáo hệ thống" (no endpoint
+produces such a report, and `Library`'s export already covers real data export), and the
+topbar "Trợ giúp" / "Thông báo" icons (no help content, no notification system — the one
+real "needs attention" list, flagged second opinions, is already a card on the doctor
+dashboard). A comment at each site records why, so they do not get re-added from the mockup.
+
+**A real bug found while verifying, unrelated to the buttons**: `GET /api/admin/logs`
+ordered by `created_at DESC` only. `audit_logs.created_at` is second-granular, so three
+quick actions share a timestamp and SQLite returns them in **arbitrary order** — the Log
+screen and the dashboard activity feed read out of sequence, and a paged read could repeat
+or skip a row because the sort was not total. Noticed because three reload calls in the
+same second came back scrambled, which first looked like the reload button misbehaving. Now
+`ORDER BY created_at DESC, id DESC`, with a test asserting ids come back strictly
+descending.
+
+**Verified on the real running system.** The clearest evidence is in the real audit log,
+where three consecutive reloads recorded three different outcomes, which is exactly the
+cache state being observed from outside the process: `classification/efficientnet_b0` (no
+suffix — a real inference run had just loaded it), then the same architecture again with
+`(chưa nạp trong bộ nhớ)` (the first call had already evicted it), then
+`segmentation/unet_efficientnet_b0` with no suffix (still cached — the classification
+reload had not touched it). Those three lines also render in the correct order on the real
+Log screen, which is the order fix. In the browser: the doctor topbar no longer exposes the
+two icon buttons and the admin dashboard no longer exposes the export button (confirmed by
+enumerating every interactive element on both portals, not by eye); clicking "Tải lại
+checkpoint" on the DenseNet121 card produced a real `POST .../classification/densenet121/
+reload → 200` and the confirmation line appeared **on that card only**; toggling "Gleason ≥
+7" narrowed a two-case list to the single 4+3=7 case and revealed the honesty hint, and
+"Tuần này" independently narrowed it to the case created this week. `403` for a doctor and
+`404` for an unknown architecture were confirmed by curl.
+
+A disposable case with a real completed inference run was used for the cache-state check
+and deleted afterwards; only case `0001` remains with its 4 images, `diagnostic_reviews`
+empty, `PRAGMA foreign_key_check` clean, and its one real `stage3_results` row intact.
+**Note for future cleanups**: the first cleanup command ran from the repo root and looked
+for `uploads/case_N` instead of `backend/uploads/case_N`, so it reported "no leftover"
+while the (empty) directory was still there — always resolve that path from `backend/`.
+
+9 new backend tests (`tests/test_model_reload.py`) and 13 new frontend ones
+(`lib/caseFilters.test.ts`). Backend: **270 passing**; frontend: **46 passing**.
+
+### "Mask shows Gleason 3 and 4 but the result says benign" (2026-08-08)
+
+User reported a real screen: the AI mask showed yellow G3 and orange G4 glands, the panel
+read **Tỷ lệ vùng ung thư 100.0%**, Stage 3 said **ISUP 1 at 98% confidence** — and the
+Primary/Secondary chips both read a green **"Benign"**. Investigated against the real run
+rows and the real checkpoints before changing anything.
+
+**Not an aggregation bug.** Run 34 (image 67, a 512×512 40x capture): segmentation found
+G3 (42,776 px) and G4 (13,839 px) and **zero benign epithelium**, so `cancer/tissue` really
+is 100%. Classification (`efficientnet_b0`) then ran on those very patches — the gate at
+`pipeline.py`'s `has_cancer_pixels` did let them through — and returned **benign at 93.2%**.
+`CLF_IDX_TO_PATTERN.get(0)` is `None`, so every patch hit the `continue`, `pattern_area`
+stayed zero and `primary_pattern` came back null. The code did exactly what it says.
+
+**The real defect was that null was rendered as a finding.** `Viewer.tsx` did
+`clf?.primary_pattern ? String(...) : 'benign'`. But null means *"no pattern was
+assigned"*, not *"the tissue is benign"* — and here it sat directly beside a 100% cancer
+area, a mask full of graded glands, and an ISUP 1. The file's own comment already knew a
+null was ambiguous and split it two ways on `total_tissue_area_px`; there was a **third**
+case it did not cover, and that third case fell into the benign branch.
+
+**Why the models disagreed — measured, all four checkpoints on the identical patch.**
+**Two claims first written here were wrong and are corrected below**; the numbers that
+stand are in the dated scale-ablation subsection that follows.
+
+The first reading of this was a four-way split (benign / gleason_3 / gleason_5 /
+gleason_4, all above 88% confident), presented as strong out-of-distribution evidence.
+**One of those four columns was simply a broken model** — see the `inception_v3`
+`transform_input` bug below; it answered gleason_5 to almost everything. With that fixed
+the same patch gives **three** distinct answers, not four: efficientnet_b0 benign 95.2%,
+densenet121 gleason_3 87.6%, inception_v3 benign 47.5%, vit_b_16 gleason_4 93.3%. Across
+all 11 SICAPv2 files the "all four architectures differ" count is **0/11**, not the 6/11
+first reported, with 2.73 distinct labels on average. Real disagreement, materially
+smaller than claimed.
+
+The second wrong claim was the cause. "Scale is a factor but not a cure" came from a sweep
+run in **the wrong direction** — only ever making the crop coarser, when SICAPv2 is
+*already* coarser than PANDA (≈1.0 µm/px against 0.48619). Correcting the right way flips
+the consensus on those 11 files from benign 8 / gleason_3 3 to **gleason_4 10 /
+gleason_3 1**, which agrees with what segmentation said all along. Scale is the dominant
+cause, quantified with ground truth in the next subsection.
+
+**Colour genuinely is not the driver here** — LAB distance 20.33, below the 30 gate, so
+`normalize_stain()` never even ran. That claim survives. So does the observation that a
+512×512 field yields **one** usable patch at native scale, so the image's grade rests on a
+single verdict with nothing to average against — though once µm/px is known the same file
+is tiled into a 2×2 grid, which fixes that too.
+
+**Fixes, all in `frontend/src/lib/aiReliability.ts` (pure, tested) plus `Viewer.tsx`:**
+- `aiReadingProblem()` returns `'no_tissue'` (unchanged behaviour) or the new
+  `'pattern_not_assigned'` — cancer area > 0 with a null pattern — which now renders an
+  explicit warning instead of a benign chip. A null pattern with **zero** cancer area is
+  deliberately *not* flagged: there both stages agree, and that is a genuine benign read.
+- `crossModelDisagreement()` costs nothing to compute: Stage 3 already runs densenet121 and
+  efficientnet_b0 over every tissue patch and stores both distributions in
+  `stage3_results.classification_pct_json`. The trigger is simply "the two top-1 labels
+  differ" — no threshold to justify — and both verdicts are shown so the doctor can judge a
+  near-tie. On the real rows it fires on exactly the two bad images (runs 33, 34) and stays
+  quiet on the three good ones (29, 31, 32), including run 32 where both models agree on
+  benign while the pattern is still unassigned — the two checks are independent.
+- Three smaller doors to the same false negative, closed in the same pass: **"Đồng ý với
+  AI" is disabled** when there is no real result (it would have written benign into the
+  review), the **prefill** no longer seeds the form from a null pattern, and the doctor's
+  own score header reads **"Chưa chọn"** in muted grey until a review exists, rather than
+  "Lành tính" on a form nobody has touched.
+
+**Verified in the real browser on the reported image**, not a reconstruction: the benign
+chips are gone (`Benign` chip count 0), the warning renders, the disagreement banner shows
+the real numbers `densenet121: Pattern 3 (86.3%)` / `efficientnet_b0: Lành tính (92.0%)`,
+the agree button is genuinely `disabled` and relabelled, and the doctor's score reads "Chưa
+chọn". Regression checked in the other direction on the in-domain PANDA slide (run 29): no
+warning, no banner, chips still Pattern 4 / Pattern 3, cancer area 89.4%, agree button
+enabled — unchanged. The only console 404s are `GET .../review` with no draft, which
+`api.getReview` treats as null by design. No test data was created; the user's real case
+was only read.
+
+11 new frontend tests (`lib/aiReliability.test.ts`), built from this run's actual numbers.
+Frontend: **57 passing**.
+
+**The image was not a microscope capture at all.** Confirmed by md5: it is
+`test_image/Sicapv2_image_test/18B001071J_Block_Region_2_1_11_...jpg`, and the user
+confirmed SICAPv2 is what they are testing with. That matters — it makes this a
+cross-dataset generalisation problem with a *known, documented* resolution, not the
+uncalibrated-microscope problem it was first taken for, and that is what made the
+controlled experiment below possible.
+
+### Physical-scale ablation → the dominant cause, and a broken checkpoint (2026-08-08)
+
+Full write-up: [docs/ABLATION_SCALE.md](docs/ABLATION_SCALE.md). Script:
+`backend/scripts/ablation_scale.py`.
+
+The SICAPv2 measurement above has no ground truth, so it cannot say whether the corrected
+answer is *right*. This supplies the control: real PANDA regions whose labels come from
+the pixel masks, degraded 2.06× to imitate SICAPv2's coarser acquisition, then classified
+with and without the correction `scale.py` would apply if it knew the image's µm/px.
+324 labelled regions from 35 slides, all three conditions judged against the same label.
+
+| condition | ensemble accuracy | ensemble confidence |
+|---|---|---|
+| `ceiling` (native resolution, correct scale) | **83.6%** | 64.1% |
+| `no_correct` (what the app does today) | **33.0%** | **79.1%** |
+| `corrected` (`patch_size_for()` re-grids to 243.1µm) | **79.6%** | 63.8% |
+
+Three things fall out, and the third explains the reported bug completely:
+
+1. **Correction recovers ~92% of the gap** — 33.0% → 79.6% against a 83.6% ceiling.
+   `no_correct` and `corrected` read the same degraded file, so the difference is scale
+   alone.
+2. **The wrong condition is the most confident** (79.1% vs 64.1%). Confidently wrong is
+   the failure mode, which is exactly what the doctor saw.
+3. **At the wrong scale, benign is the only class that survives**: benign 100%, gleason_3
+   49.0%, gleason_4 **9.8%**, gleason_5 **4.0%**. A coarser-than-training image gets read
+   as benign — a false negative, the most dangerous direction.
+
+**Ensembling does not rescue it.** At `ceiling` the 4-model average (83.6%) beats the best
+single model (80.6%), but at `no_correct` it scores 33.0% — no better than the individual
+models, because all four fail the same way. Ensembles absorb random error, not systematic
+bias. Worth recording, since "just ensemble it" was the intuitive remedy.
+
+**The bug this experiment surfaced.** The first run scored `inception_v3` at **16.4%** on
+the `ceiling` condition — below the 25% chance line for 4 classes, and below its own
+`corrected` column. That impossible number led to a real defect:
+`architectures.py` built `inception_v3` without `transform_input=True`. torchvision turns
+that flag on automatically whenever `weights=` is passed, which is how the training
+notebook got it; inference passes `weights=None`, leaving it `False`, and the network was
+fed inputs normalised for the wrong scheme. Measured on 62 real labelled PANDA patches:
+**16.1%**, predicting gleason_5 for 56 of them, against **83.9%** with the flag set — its
+own reported test accuracy is 86.11%.
+
+Nothing caught this. `load_state_dict(strict=True)` passes because `transform_input` is a
+plain bool attribute, not a parameter; the model card kept showing the honest 86.11% from
+training; and the doctor-facing picker offered it like any other architecture. **This
+model has been broken in the app since it was deployed.** Fixed, with
+`tests/test_architectures.py` (6 tests) guarding the class of settings that change how a
+network reads its input while leaving no trace in a state_dict. Every number in this
+subsection is from the re-run **after** the fix.
+
+**A design error of mine in the experiment itself**, corrected rather than papered over:
+the first version multiplied the coarsening factor into the source region size, making the
+`ceiling` quadrants 1030 native px — 500µm, twice a training field — so the supposed upper
+bound was itself mis-scaled and scored 19.3%, below `corrected`. The region must always be
+2 × 500 native px whatever the factor. The reason is recorded in the script.
+
+**Recommended, not built** (it changes how every uploaded image is processed, so it needs
+the user's call): let an upload declare its **µm/pixel**. Everything downstream already
+works — `scale.py` is correct and tested; it simply never fires, because the only two
+sources of µm/px today are the image file's own resolution tags (a JPEG has none) and the
+per-objective `magnification_calibration` table (for a real microscope, and not yet
+measured). One missing path.
+
+**For the thesis.** This is the concrete out-of-distribution result the Discussion needs,
+and it is a stronger one than the "40 LAB units" figure the abstract currently leans on:
+a 2.06× resolution mismatch alone drops case-relevant accuracy from 83.6% to 33.0% while
+*raising* the models' confidence, and collapses every cancer class while leaving benign
+untouched. It argues that physical-scale normalisation is not an optimisation but a
+precondition for deploying these models on any source other than PANDA.
+
+### Ensemble ablation → rejected; model-default bug found instead (2026-08-07)
+
+Full write-up: [docs/ABLATION_ENSEMBLE.md](docs/ABLATION_ENSEMBLE.md). Script:
+`backend/scripts/ablation_ensemble.py`.
+
+Three segmentation checkpoints exist but a run uses one, so averaging them looked like free
+accuracy. Measured against ground truth on 150 real PANDA patches: **only 1 of 7 combinations
+beats the best single model**, by +0.0118 mean IoU (+2.2% relative) at **2x** inference time,
+and it loses on gleason_3 — the clinically decisive boundary. Averaging all three is far
+worse (0.4347 vs 0.5425), because `deeplabv3plus` scores **IoU 0.0000 on gleason_3** and drags
+that class down wherever it appears. **Not wired in.**
+
+**This measurement must not be used to rank the models.** The project's own training
+evaluation (thousands of patches, canonical split, correct labelling rule) puts them at
+0.6528 / 0.6193 / 0.5928 — same ordering, far narrower spread than this 150-patch sample's
+0.5425 / 0.3741 / 0.2809. An earlier recommendation here to drop `deeplabv3plus` was
+**retracted** for exactly that reason: a small grid-cut sample is weaker evidence than a
+proper evaluation, and 0.59 vs 0.65 does not justify removing an architecture.
+
+**The real bug the experiment surfaced**: both sources agree on *ordering*, and the picker's
+default was "first entry in a hard-coded list". Right for segmentation by luck, **wrong for
+classification** — `densenet121` (F1 0.8634) shadowed `efficientnet_b0` (F1 0.8685), so any
+doctor who never opened the picker silently got the second-best model. `recommended_arch()`
+(`ai_models_config.py`) now derives the default from the recorded metric per task
+(F1 for classification, IoU for segmentation), the API exposes a `recommended` flag, the
+trigger endpoint defaults to it, and `Pipeline.tsx` both defaults to and labels it
+"(khuyến nghị)". 10 tests, including one asserting the default is *not* merely the first
+listed entry — the shape of the original bug.
+
+### Stain-normalisation ablation — the inference-time step is actively harmful (2026-08-07)
+
+Full write-up: [docs/ABLATION_STAIN_NORM.md](docs/ABLATION_STAIN_NORM.md). Script:
+`backend/scripts/ablation_stain_norm.py`.
+
+The train/inference distribution shift documented earlier in this file (Macenko applied at
+inference, never during training) had only ever been *described*. It is now **measured**, and
+the result is far worse than the "might cost a little accuracy on in-domain data" this file
+previously guessed. `test_image/PANDA_image_test/train_label_masks/` turned out to hold real
+ground-truth masks, so this is an accuracy measurement, not a displacement one.
+
+On 150 patches from 5 real PANDA slides (`unet_densenet121`), mean IoU over the tissue
+classes falls **0.5849 → 0.1025** and mean DSC **0.7286 → 0.1672** when normalisation is
+applied — an 82% relative loss. Gleason 3 detection collapses to **IoU 0.0000**. On 59 real
+microscope captures (`YD_image_test`, no ground truth) **23.58%** of tissue pixels change
+class, so it is not a no-op in the deployment case either — just a large change of unknown
+sign.
+
+**This is not a broken normaliser**, which was checked before drawing any conclusion: on a
+real PANDA patch the output has 0.00% pixels blown to white, 0.01% clipped on any channel,
+and channel means shifted only ~11/255. The transform is mild. That a mild transform destroys
+accuracy is itself the finding — the training notebooks used **no colour augmentation at all**
+(flips and rotations only), so the models have no colour robustness whatsoever.
+
+**Recommended and not yet done** (it changes every AI result, so it needs the user's call):
+drop `normalize_stain()` from `inference/tiling.py`'s per-patch path. Keep the upload-time
+`{uuid}_normalized.jpg` QC derivative, which never reaches a model. The right fix for real
+colour shift is colour augmentation during training, or stain normalisation applied to
+**both** sides — not one side at inference.
+
+### Case-level report, credential rotation, storage pruning, PRD rewrite (2026-08-07)
+
+Four items the user picked from an improvement review.
+
+**Case-level report** — `Report.tsx` was per-image, but under the CAP protocol one case
+(up to 12 slides) produces one signed document, which is exactly why case-level Gleason was
+built earlier. New `GET /api/cases/{case_id}/report` returns the case header, the aggregated
+score (reusing `get_case_gleason`), every **confirmed** image's findings ordered by slide
+then image, and who signed them. Drafts are excluded on purpose — an unsigned opinion has no
+place on a signed document — but `images_total` is returned so a partial report can never be
+mistaken for a complete one. New `frontend/src/pages/CaseReport.tsx`, reached from
+`CaseDetail`'s "Phiếu kết quả ca" button, prints via `window.print()`.
+
+The signer problem was separate and worse: `reviewed_by` is an integer and nothing looked it
+up, so a "signed" report could state a time but never a person. `DiagnosticReview` gained a
+`reviewer` relationship and a `reviewed_by_name` property, which `from_attributes` picks up —
+so **every** endpoint returning a review now carries the name, with no router changes. A case
+signed by more than one pathologist lists all of them, in signing order.
+
+**Bootstrap passwords rotated.** `admin123`/`doctor123`/`pass123` were short, guessable, and
+written down in a checked-in file (one was below the 8-character minimum this app now
+enforces on new accounts). New `scripts/reset_passwords.py` rotates any or all accounts to
+16-character random passwords, writing them to `backend/credentials.local.txt` — gitignored,
+because they have to stay retrievable on this machine without following the repo. All five
+accounts rotated; verified the new admin password logs in (200) and the old one does not
+(401). CLAUDE.md no longer lists any password.
+
+**Storage pruning.** One image costs ~48MB (original + derivatives + full-size mask + a
+deep-zoom pyramid), every re-run writes a new mask, and nothing ever deleted any of it. New
+`scripts/prune_storage.py` removes superseded run masks (the latest run per image is always
+kept), orphaned files, and the empty `case_*/slide_*` shells left by deleted cases. **Dry-run
+by default**; deep-zoom pyramids are only touched with `--tiles`, since they are a pure cache
+but also what makes a WSI usable. That caution paid for itself immediately: the first
+dry-run reported 3,264 tiles of the user's **real** case as orphans, because the orphan check
+looked at `path.parent` while tiles live at `{stem}_dzi_files/{level}/`, one level deeper.
+Fixed to test every path component. Current state after the fix: 0 reclaimable by default,
+17MB if `--tiles` is passed. Applying it was left to the user (the delete was blocked by a
+permission prompt, and nothing was reclaimable anyway).
+
+**`docs/PRD.md` rewritten** — the thesis's own requirements document described SICAPv2,
+ResNeXt50 and a binary cancer-region mask, none of which is what was built. All 13 stale
+passages corrected across §0, §1, §3, §4, §8.3, §8.5, §9.3, §10, §11 and §13: PANDA
+(Radboud-only, with the reason — Karolinska's coarser masks are why the 6-class scheme is
+possible at all), the real architectures, semantic segmentation over 6 classes, and
+classification over 4. Two further corrections beyond the original list: the claimed "4-fold
+cross-validation" was never run (it is a single static 80/10/10 subject-wise split), and §11
+now carries the methodology caveat that these numbers must not be compared directly against
+the reference paper's table.
 
 ## Design source
 
