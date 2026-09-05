@@ -11,6 +11,21 @@ class AdminStats(BaseModel):
     pipeline_error_rate: float | None  # 0..1, None if no runs yet
 
 
+# ---------- storage ----------
+class PruneStorageGroup(BaseModel):
+    title: str
+    count: int
+    size_bytes: int
+    sample: list[str]
+
+
+class PruneStorageResult(BaseModel):
+    applied: bool
+    total_reclaimable_bytes: int
+    removed_count: int
+    details: list[PruneStorageGroup]
+
+
 # ---------- users ----------
 class UserOut(BaseModel):
     id: int

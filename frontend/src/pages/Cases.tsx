@@ -4,7 +4,7 @@ import { Select } from '../components/ui/Select';
 import { Button } from '../components/ui/Button';
 import { Tag } from '../components/ui/Tag';
 import { Badge } from '../components/ui/Badge';
-import { GleasonChip } from '../components/pathology/GleasonChip';
+
 import { Icon } from '../lib/icon';
 import { createdSince, hasHighGradeScore, startOfWeek } from '../lib/caseFilters';
 import type { Case } from '../types';

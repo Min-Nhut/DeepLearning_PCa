@@ -78,6 +78,13 @@ export function getStats(token: string): Promise<AdminStats> {
   return apiFetch('/api/admin/stats', {}, token);
 }
 
+export function pruneStorage(token: string, apply: boolean, tiles: boolean): Promise<PruneStorageResult> {
+  const params = new URLSearchParams();
+  if (apply) params.set('apply', 'true');
+  if (tiles) params.set('tiles', 'true');
+  return apiFetch(`/api/admin/storage/prune?${params.toString()}`, { method: 'POST' }, token);
+}
+
 export function getUsers(token: string): Promise<ApiUser[]> {
   return apiFetch('/api/admin/users', {}, token);
 }

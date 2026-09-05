@@ -20,7 +20,7 @@ from ..ai_models_config import list_model_infos
 from ..audit import write_audit_log
 from ..inference import registry as model_registry
 from ..database import get_db
-from ..deps import require_admin
+from ..deps import get_current_user, require_admin
 from ..models import AuditLog, Case, DiagnosticReview, Image, InferenceRun, Slide, User
 from ..schemas import (
     AdminStats,
@@ -28,6 +28,7 @@ from ..schemas import (
     MigrationImportResult,
     MigrationPreview,
     ModelInfo,
+    PruneStorageResult,
     SqliteCasePreview,
     SqliteMigrationImportResult,
     SqliteMigrationPreview,
@@ -37,11 +38,21 @@ from ..schemas import (
 )
 from ..security import hash_password
 from .cases import MAX_IMAGES_PER_SLIDE, MAX_SLIDES_PER_CASE, UPLOAD_ROOT, _process_and_store, _read_capped
+from scripts.prune_storage import run_prune
 
 router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(require_admin)])
+public_router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(get_current_user)])
 
 
 # ---------------------------------------------------------------- stats ----
+@router.post("/storage/prune", response_model=PruneStorageResult)
+def prune_storage(apply: bool = False, tiles: bool = False, db: Session = Depends(get_db)) -> PruneStorageResult:
+    res = run_prune(db, apply=apply, tiles=tiles)
+    if apply and res["removed_count"] > 0:
+        write_audit_log(db, None, "Dọn dẹp lưu trữ", "storage", None, f"Đã xóa {res['removed_count']} file rác, giải phóng {res['total_reclaimable_bytes']} bytes")
+    return PruneStorageResult(**res)
+
+
 @router.get("/stats", response_model=AdminStats)
 def get_stats(db: Session = Depends(get_db)) -> AdminStats:
     total_cases = db.query(func.count(Case.id)).scalar() or 0

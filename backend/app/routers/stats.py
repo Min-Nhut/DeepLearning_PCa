@@ -1,12 +1,12 @@
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func
+from sqlalchemy import func, exists, select
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import get_current_user
-from ..models import Case, ClassificationResult, DiagnosticReview
+from ..models import Case, ClassificationResult, DiagnosticReview, Image, Slide
 from ..schemas import DoctorStats, PatternCount
 
 router = APIRouter(prefix="/api/stats", tags=["stats"], dependencies=[Depends(get_current_user)])
@@ -45,8 +45,23 @@ def get_doctor_stats(db: Session = Depends(get_db)) -> DoctorStats:
     pending_reviews = (
         db.query(func.count(DiagnosticReview.id)).filter(DiagnosticReview.status == "draft").scalar() or 0
     )
-    confirmed_reviews = (
-        db.query(func.count(DiagnosticReview.id)).filter(DiagnosticReview.status == "confirmed").scalar() or 0
+    # Đếm số CA có ít nhất một ảnh đã được bác sĩ xác nhận chẩn đoán (status='confirmed').
+    # DiagnosticReview gắn với Image (per-image), nên phải join ngược lên Case.
+    confirmed_cases = (
+        db.query(func.count(Case.id))
+        .filter(
+            exists(
+                select(DiagnosticReview.id)
+                .join(Image, Image.id == DiagnosticReview.image_id)
+                .join(Slide, Slide.id == Image.slide_id)
+                .where(
+                    Slide.case_id == Case.id,
+                    DiagnosticReview.status == "confirmed",
+                )
+                .correlate(Case)
+            )
+        )
+        .scalar() or 0
     )
     avg_confidence = (
         db.query(func.avg(ClassificationResult.primary_confidence))
@@ -80,7 +95,7 @@ def get_doctor_stats(db: Session = Depends(get_db)) -> DoctorStats:
     return DoctorStats(
         new_cases_today=new_cases_today,
         pending_reviews=pending_reviews,
-        confirmed_reviews=confirmed_reviews,
+        confirmed_reviews=confirmed_cases,
         avg_ai_confidence=(avg_confidence * 100) if avg_confidence is not None else None,
         pattern_distribution=distribution,
     )

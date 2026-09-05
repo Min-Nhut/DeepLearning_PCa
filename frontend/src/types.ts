@@ -86,6 +86,30 @@ export interface AdminStats {
   pipeline_error_rate: number | null;
 }
 
+export interface PruneStorageGroup {
+  title: string;
+  count: number;
+  size_bytes: number;
+  sample: string[];
+}
+
+export interface PruneStorageResult {
+  applied: boolean;
+  total_reclaimable_bytes: number;
+  removed_count: number;
+  details: PruneStorageGroup[];
+}
+
+export interface ApiUser {
+  id: number;
+  username: string;
+  full_name: string | null;
+  role: ApiRole;
+  is_active: boolean;
+  run_count: number;
+  last_activity: string | null;
+}
+
 export interface LogEntryApi {
   id: number;
   created_at: string;
