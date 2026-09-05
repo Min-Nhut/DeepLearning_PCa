@@ -39,7 +39,7 @@ export function DoctorDashboard({ cases, token, onOpenCase, onGo, onGoResult }: 
           unit={stats?.avg_ai_confidence != null ? '%' : undefined}
           icon={<Icon name="activity" />}
         />
-        <StatCard label="Đã xác nhận" value={stats ? stats.confirmed_reviews : '—'} icon={<Icon name="file-check" />} />
+        <StatCard label="Ca hoàn tất" value={stats ? stats.confirmed_reviews : '—'} icon={<Icon name="file-check" />} />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20 }}>
         <Card padding="none">

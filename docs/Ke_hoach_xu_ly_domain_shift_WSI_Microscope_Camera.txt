@@ -1,0 +1,368 @@
+KẾ HOẠCH XỬ LÝ DOMAIN SHIFT
+GIỮA WSI VÀ ẢNH MICROSCOPE-CAMERA
+
+1. THÔNG TIN HIỆN TẠI
+
+SOURCE DOMAIN – DỮ LIỆU HUẤN LUYỆN
+- Patch gốc: 500×500 px
+- Resolution: 0,48619 µm/pixel
+- Physical FOV: 500 × 0,48619 = 243,095 µm
+- Mỗi patch tương ứng khoảng 243,1 × 243,1 µm
+- Classification: 500×500 -> 224×224
+- Segmentation: 500×500 -> 256×256
+
+TARGET DOMAIN – DỮ LIỆU ĐẠI HỌC Y DƯỢC
+- Ảnh thực tế từ microscope-camera
+- TIFF, 3840×2160
+- Camera Sony IMX334
+- Sensor pixel 2×2 µm
+- Có mã bệnh nhân
+- Có nhãn Gleason pattern của vùng ảnh
+- Không có segmentation mask
+
+2. MỤC TIÊU
+
+Không train lại model từ đầu.
+
+Mục tiêu là kiểm tra khả năng chuyển model đã train trên WSI sang ảnh microscope-camera, sau đó giảm domain shift bằng:
+- Chuẩn hóa màu/ánh sáng
+- Chuẩn hóa scale
+- Fine-tuning nhẹ nếu cần
+
+3. PIPELINE
+
+Ảnh TIFF 3840×2160
+    ↓
+Đọc ảnh gốc
+    ↓
+Tissue/background detection
+    ↓
+Color + illumination normalization
+    ↓
+Scale matching
+    ↓
+Crop target patch
+    ↓
+500×500
+    ├──→ 224×224 → Classification
+    └──→ 256×256 → Segmentation
+
+Không resize trực tiếp 3840×2160 xuống 500×500.
+Mục tiêu physical FOV của patch camera nên tương đương khoảng 243,1×243,1 µm với source.
+
+4. SCALE MATCHING
+
+Hiện chưa có effective µm/pixel của camera tại mặt tiêu bản.
+Không tự giả định camera có 0,1 hoặc 0,4 µm/pixel.
+
+Dùng empirical scale search:
+400×400, 500×500, 600×600, 700×700, 800×800,
+900×900, 1000×1000, 1200×1200.
+
+Mỗi crop -> resize về 500×500 -> inference.
+Chọn scale dựa trên validation patients, không dùng test set để chọn scale.
+
+5. CHUẨN BỊ DATASET
+
+hospital_dataset/
+├── images/
+│   ├── patient_001/
+│   │   ├── image_001.tiff
+│   │   └── ...
+│   ├── patient_002/
+│   └── ...
+└── metadata.csv
+
+metadata.csv tối thiểu:
+patient_id, image_path, gleason
+
+Bắt buộc chia dữ liệu theo bệnh nhân để tránh data leakage.
+Không random split theo ảnh.
+
+Nếu số bệnh nhân ít, ưu tiên GroupKFold hoặc Leave-One-Patient-Out.
+
+6. ĐỌC TIFF
+
+Giữ ảnh gốc 3840×2160.
+
+import cv2
+
+img = cv2.imread(image_path, cv2.IMREAD_COLOR)
+img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+print(img.shape)
+
+Kỳ vọng: (2160, 3840, 3)
+
+7. TISSUE / BACKGROUND DETECTION
+
+Baseline:
+
+def get_tissue_mask(img):
+    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    mask = gray < 220
+    mask = mask.astype(np.uint8) * 255
+    kernel = np.ones((5, 5), np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    return mask
+
+Tính tissue ratio:
+tissue_ratio = np.mean(mask > 0)
+
+Có thể bắt đầu với tissue_ratio >= 0,5 để loại patch có quá nhiều background, sau đó điều chỉnh bằng thực nghiệm.
+
+8. CHUẨN HÓA MÀU/ÁNH SÁNG
+
+Mục tiêu là giảm khác biệt giữa WSI scanner và microscope-camera.
+
+Có thể bắt đầu bằng LAB/CLAHE:
+
+def normalize_lab(img):
+    lab = cv2.cvtColor(img, cv2.COLOR_RGB2LAB)
+    l, a, b = cv2.split(lab)
+    clahe = cv2.createCLAHE(
+        clipLimit=2.0,
+        tileGridSize=(8, 8)
+    )
+    l = clahe.apply(l)
+    lab = cv2.merge([l, a, b])
+    return cv2.cvtColor(lab, cv2.COLOR_LAB2RGB)
+
+Sau khi baseline chạy ổn, có thể thử stain normalization chuyên dụng như Macenko hoặc Vahadane.
+
+9. TẠO PATCH
+
+Không lấy patch ngẫu nhiên; ưu tiên patch có đủ mô.
+
+def extract_patch(img, x, y, size):
+    h, w = img.shape[:2]
+    x1 = max(0, x - size // 2)
+    y1 = max(0, y - size // 2)
+    x2 = min(w, x1 + size)
+    y2 = min(h, y1 + size)
+    patch = img[y1:y2, x1:x2]
+    if patch.shape[0] != size or patch.shape[1] != size:
+        return None
+    return patch
+
+Sau đó:
+patch_500 = cv2.resize(
+    patch,
+    (500, 500),
+    interpolation=cv2.INTER_AREA
+)
+
+10. CLASSIFICATION
+
+Pipeline:
+500×500 -> 224×224 -> Classification model
+
+from torchvision import transforms
+
+classification_transform = transforms.Compose([
+    transforms.ToPILImage(),
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+])
+
+x = classification_transform(patch_500)
+x = x.unsqueeze(0).to(device)
+
+with torch.no_grad():
+    output = classification_model(x)
+    probability = torch.softmax(output, dim=1)
+    prediction = probability.argmax(dim=1)
+
+Phải đảm bảo mapping nhãn Gleason pattern của target giống model đã train.
+Không nhầm Gleason pattern với Gleason score.
+
+11. SEGMENTATION
+
+Pipeline:
+500×500 -> 256×256 -> Segmentation model
+
+from torchvision import transforms
+
+segmentation_transform = transforms.Compose([
+    transforms.ToPILImage(),
+    transforms.Resize((256, 256)),
+    transforms.ToTensor(),
+])
+
+x = segmentation_transform(patch_500)
+x = x.unsqueeze(0).to(device)
+
+with torch.no_grad():
+    output = segmentation_model(x)
+
+Phần xử lý output phụ thuộc kiến trúc segmentation hiện tại.
+
+12. BASELINE DOMAIN SHIFT
+
+Bắt buộc thực hiện trước fine-tuning.
+
+Ảnh bệnh viện
+    ↓
+Preprocessing tối thiểu
+    ↓
+500×500
+    ↓
+224×224
+    ↓
+Model WSI-trained
+    ↓
+Prediction
+
+Không fine-tune.
+
+Lưu:
+patient_id
+image_id
+true_label
+predicted_label
+probability
+
+Đánh giá:
+- Accuracy
+- Precision
+- Recall
+- F1
+- Confusion Matrix
+- QWK nếu phù hợp
+
+13. SO SÁNH NORMALIZATION
+
+Experiment A:
+Raw camera -> model
+
+Experiment B:
+Camera -> Color/illumination normalization -> model
+
+So sánh Accuracy, Precision, Recall, F1 và QWK.
+
+14. SCALE SEARCH
+
+Thử crop size:
+400, 500, 600, 700, 800, 900, 1000, 1200.
+
+Quy trình:
+Ảnh camera
+    ↓
+crop theo candidate size
+    ↓
+resize 500×500
+    ↓
+224×224
+    ↓
+classification
+    ↓
+đánh giá
+
+Tạo bảng:
+Crop size | F1 | Accuracy | QWK
+
+Chọn scale tốt nhất dựa trên validation patients.
+
+15. FINE-TUNING
+
+Chỉ thực hiện nếu baseline + preprocessing + scale matching vẫn chưa tốt.
+
+Không train từ đầu.
+
+Chiến lược:
+1. Load model WSI-trained.
+2. Freeze phần lớn backbone.
+3. Fine-tune classification head.
+4. Nếu cần, unfreeze một phần backbone cuối.
+5. Dùng learning rate nhỏ.
+
+Ví dụ:
+for param in model.backbone.parameters():
+    param.requires_grad = False
+
+optimizer = torch.optim.AdamW(
+    filter(lambda p: p.requires_grad, model.parameters()),
+    lr=1e-4
+)
+
+Nếu cần mở layer cuối:
+for param in model.backbone.layer4.parameters():
+    param.requires_grad = True
+
+Sau đó giảm learning rate, ví dụ 1e-5.
+
+16. SEGMENTATION TRÊN DỮ LIỆU BỆNH VIỆN
+
+Target không có mask.
+
+Do đó không được báo cáo Dice/IoU trên target như ground truth nếu không có mask thật.
+
+Hiện tại:
+Segmentation -> qualitative evaluation
+
+Có thể lưu:
+- ảnh gốc
+- predicted mask
+- overlay
+
+Nếu có thể annotate một subset nhỏ, lúc đó mới đánh giá Dice, IoU, Precision, Recall.
+
+17. BA TRẠNG THÁI MODEL CẦN SO SÁNH
+
+Model 1 – BASE:
+WSI-trained -> Hospital
+
+Model 2 – BASE + PREPROCESSING:
+WSI-trained -> Color/illumination normalization -> Scale matching -> Hospital
+
+Model 3 – ADAPTED:
+Model 2 -> Fine-tuning bằng target data -> Hospital
+
+Bảng:
+Model | Preprocessing | Fine-tune | F1 | QWK
+Base | Không | Không | ... | ...
+Base | Color + illumination | Không | ... | ...
+Base | Color + scale | Không | ... | ...
+Adapted | Color + scale | Có | ... | ...
+
+18. THỨ TỰ CODE THỰC TẾ
+
+01. Đọc TIFF
+02. Kiểm tra kích thước và chất lượng ảnh
+03. Tissue/background detection
+04. Extract crop
+05. Resize -> 500×500
+06. Classification inference
+07. Baseline metrics
+08. Color/illumination normalization
+09. So sánh metrics
+10. Scale search
+11. Chọn preprocessing + scale tốt nhất
+12. Fine-tuning nếu cần
+13. Final evaluation
+14. Sau cùng mới tích hợp vào FastAPI/website
+
+19. KẾT QUẢ CẦN CHỨNG MINH
+
+Model được huấn luyện trên WSI ở 0,48619 µm/pixel có domain shift khi chuyển sang microscope-camera.
+
+Kiểm tra lần lượt:
+1. Baseline
+2. Color/illumination normalization
+3. Scale matching
+4. Fine-tuning
+
+Từ đó xác định phương pháp phù hợp nhất để chuyển model sang dữ liệu thực tế của Đại học Y Dược.
+
+20. KẾT LUẬN
+
+- Không train lại model từ đầu.
+- Không resize trực tiếp 3840×2160 -> 500×500.
+- Không tự giả định effective µm/pixel của camera.
+- Giữ ảnh camera gốc.
+- Chuẩn hóa ảnh -> tạo patch -> 500×500 -> 224×224/256×256.
+- Đánh giá zero-shot trước.
+- Fine-tune sau nếu cần.
+- Classification có thể đánh giá định lượng vì có Gleason pattern.
+- Segmentation hiện chỉ đánh giá định tính vì chưa có mask.
+- Chia dữ liệu theo bệnh nhân để tránh data leakage.

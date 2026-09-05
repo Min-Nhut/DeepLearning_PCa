@@ -117,6 +117,50 @@ def collect_orphans(db, include_tiles: bool) -> list[Path]:
     return orphans
 
 
+def run_prune(db, apply: bool, tiles: bool) -> dict:
+    superseded = collect_superseded_runs(db)
+    orphans = collect_orphans(db, include_tiles=tiles)
+    
+    groups = [("Superseded run masks", superseded), ("Orphaned / cache files", orphans)]
+    total_reclaimable = 0
+    removed_count = 0
+    
+    details = []
+
+    for title, paths in groups:
+        subtotal = sum(_size(p) for p in paths)
+        total_reclaimable += subtotal
+        
+        # Collect top 20 for details
+        sample = [str(p.relative_to(UPLOAD_ROOT.parent)) for p in paths[:20]]
+        
+        details.append({
+            "title": title,
+            "count": len(paths),
+            "size_bytes": subtotal,
+            "sample": sample
+        })
+
+    if apply:
+        for _, paths in groups:
+            for p in paths:
+                try:
+                    if p.is_dir():
+                        shutil.rmtree(p, ignore_errors=True)
+                    else:
+                        p.unlink(missing_ok=True)
+                    removed_count += 1
+                except OSError:
+                    pass
+
+    return {
+        "applied": apply,
+        "total_reclaimable_bytes": total_reclaimable,
+        "removed_count": removed_count,
+        "details": details
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--apply", action="store_true", help="actually delete (default: report only)")
@@ -125,39 +169,23 @@ def main() -> None:
 
     db = SessionLocal()
     try:
-        superseded = collect_superseded_runs(db)
-        orphans = collect_orphans(db, include_tiles=args.tiles)
+        res = run_prune(db, apply=args.apply, tiles=args.tiles)
     finally:
         db.close()
 
-    groups = [("Superseded run masks", superseded), ("Orphaned / cache files", orphans)]
-    total = 0
-    for title, paths in groups:
-        subtotal = sum(_size(p) for p in paths)
-        total += subtotal
-        print(f"\n{title}: {len(paths)} item(s), {human(subtotal)}")
-        for p in paths[:20]:
-            print(f"  {p.relative_to(UPLOAD_ROOT.parent)}  ({human(_size(p))})")
-        if len(paths) > 20:
-            print(f"  … and {len(paths) - 20} more")
+    for g in res["details"]:
+        print(f"\n{g['title']}: {g['count']} item(s), {human(g['size_bytes'])}")
+        for p in g["sample"]:
+            print(f"  {p}")
+        if g['count'] > 20:
+            print(f"  … and {g['count'] - 20} more")
 
-    print(f"\nReclaimable: {human(total)}")
-    if not args.apply:
+    print(f"\nReclaimable: {human(res['total_reclaimable_bytes'])}")
+    if not res["applied"]:
         print("Dry run — nothing deleted. Re-run with --apply.")
         return
 
-    removed = 0
-    for _, paths in groups:
-        for p in paths:
-            try:
-                if p.is_dir():
-                    shutil.rmtree(p, ignore_errors=True)
-                else:
-                    p.unlink(missing_ok=True)
-                removed += 1
-            except OSError as exc:
-                print(f"  could not remove {p}: {exc}")
-    print(f"Removed {removed} item(s), {human(total)} reclaimed.")
+    print(f"Removed {res['removed_count']} item(s), {human(res['total_reclaimable_bytes'])} reclaimed.")
 
 
 if __name__ == "__main__":

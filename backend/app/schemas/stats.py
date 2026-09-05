@@ -11,6 +11,6 @@ class PatternCount(BaseModel):
 class DoctorStats(BaseModel):
     new_cases_today: int
     pending_reviews: int  # diagnostic_reviews.status == 'draft'
-    confirmed_reviews: int  # diagnostic_reviews.status == 'confirmed'
+    confirmed_reviews: int  # number of cases with at least one confirmed diagnostic review
     avg_ai_confidence: float | None  # classification_results.primary_confidence, averaged, as 0..100
     pattern_distribution: list[PatternCount]  # confirmed reviews only, grouped by primary_pattern

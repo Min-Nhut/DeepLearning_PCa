@@ -29,6 +29,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(admin.router)
+app.include_router(admin.public_router)
 app.include_router(cases.router)
 app.include_router(cases.image_router)
 app.include_router(reviews.router)

@@ -206,8 +206,9 @@ def _attach_derived(db: Session, cases: list[Case]) -> None:
         .group_by(InferenceRun.image_id)
         .scalar_subquery()
     )
-    isup_by_case = dict(
-        db.query(Slide.case_id, func.avg(Stage3Result.isup_grade), func.avg(Stage3Result.confidence))
+    isup_by_case = {
+        row[0]: (row[1], row[2])
+        for row in db.query(Slide.case_id, func.avg(Stage3Result.isup_grade), func.avg(Stage3Result.confidence))
         .join(Image, Image.slide_id == Slide.id)
         .join(InferenceRun, InferenceRun.image_id == Image.id)
         .join(Stage3Result, Stage3Result.run_id == InferenceRun.id)
@@ -218,7 +219,7 @@ def _attach_derived(db: Session, cases: list[Case]) -> None:
         )
         .group_by(Slide.case_id)
         .all()
-    )
+    }
 
     runs: dict[int, dict[str, int]] = {}
     for case_id, run_status, count in run_rows:

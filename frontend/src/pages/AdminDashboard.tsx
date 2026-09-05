@@ -86,6 +86,29 @@ export function AdminDashboard({ token, onGo }: { token: string; onGo: (nav: Nav
             <p style={{ fontSize: 'var(--text-sm)', color: 'rgba(255,255,255,.82)', marginBottom: 16, lineHeight: 1.5 }}>Nhập dữ liệu Ca → Slide → Ảnh từ hệ thống desktop cũ, kèm ẩn danh hóa.</p>
             <Button variant="accent" fullWidth iconLeft={<Icon name="import" />} onClick={() => onGo('migration')}>Mở công cụ di trú</Button>
           </div>
+          <Card>
+            <h3 style={{ fontSize: 'var(--text-base)', marginBottom: 12, fontFamily: 'var(--font-display)' }}>Quản trị hệ thống</h3>
+            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginBottom: 16 }}>Dọn dẹp các tệp ảnh mờ hoặc mask chạy lỗi, giải phóng dung lượng.</p>
+            <Button 
+              variant="secondary" 
+              fullWidth 
+              iconLeft={<Icon name="trash" />} 
+              onClick={async () => {
+                if (!window.confirm("Thực hiện dọn dẹp dung lượng thừa trên ổ đĩa?")) return;
+                try {
+                  const res = await api.pruneStorage(token, true, false);
+                  const msg = res.removed_count > 0 
+                    ? `Đã xóa ${res.removed_count} mục, giải phóng ${(res.total_reclaimable_bytes / 1024 / 1024).toFixed(1)} MB.` 
+                    : "Không có file rác nào cần dọn.";
+                  alert(msg);
+                } catch (e: any) {
+                  alert("Lỗi dọn dẹp: " + e.message);
+                }
+              }}
+            >
+              Dọn dẹp bộ nhớ
+            </Button>
+          </Card>
         </div>
       </div>
     </div>
